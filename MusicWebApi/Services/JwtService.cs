@@ -43,4 +43,22 @@ public class JwtService
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
     }
+
+    public string GetIdFromToken(string token)
+    {
+        var tokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = _signingCredentials.Key,
+            ValidateIssuer = true,
+            ValidIssuer = _jwtSettings.Issuer,
+            ValidateAudience = true,
+            ValidAudience = _jwtSettings.Audience,
+            ValidateLifetime = true 
+        };
+        var id = tokenHandler.ValidateToken(token, tokenValidationParameters, out _)
+            .FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new Exception("Token body id is null"); ;
+
+        return id;
+    }
 }

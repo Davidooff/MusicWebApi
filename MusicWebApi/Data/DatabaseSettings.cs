@@ -7,4 +7,6 @@ public class DatabaseSettings
     public string DatabaseName { get; set; } = null!;
 
     public string UsersCollectionName { get; set; } = null!;
+
+    public string YTMusicCollectionName { get; set; } = null!;
 }

@@ -3,7 +3,7 @@ using MongoDB.Driver;
 using MusicWebApi.Data;
 using MusicWebApi.Data.Models;
 
-namespace MusicWebApi.Services;
+namespace MusicWebApi.Data.Services;
 
 public class UserSerchOptions
 {
@@ -32,12 +32,11 @@ public class UsersService
     public async Task<UserDB?> GetAsync(UserSerchOptions search)
     {
         if (search.Id == null && search.Email == null)
-        {
             return null;
-        }
+
         return await _usersCollection.Find(x => 
-        (search.Id == null || (search.Id != null && x.Id == search.Id)) || 
-        (search.Id == null || (search.Email != null && x.Email == search.Email)))
+        search.Id == null || search.Id != null && x.Id == search.Id || 
+        search.Id == null || search.Email != null && x.Email == search.Email)
             .FirstOrDefaultAsync();
     }
 

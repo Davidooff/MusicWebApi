@@ -1,7 +1,7 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using MusicWebApi.Data.Models;
+using MusicWebApi.Data.Services;
 using MusicWebApi.Models;
 using MusicWebApi.Services;
 
@@ -59,5 +59,25 @@ public class UsersController : ControllerBase
         }
 
         return Results.Unauthorized();
+    }
+
+    [HttpPatch("updateToken")]
+    public async Task<IResult> updateToken([FromBody] string refreshToken)
+    {
+        string id = _jwtService.GetIdFromToken(refreshToken);
+
+        UserDB? userDB = await _usersService.GetAsync(new UserSerchOptions { Id = id });
+
+        if (userDB == null) return Results.NotFound("User not found");
+
+        int tokenIndex = Array.IndexOf(userDB.RefreshToken, refreshToken);
+        if (tokenIndex == -1) return Results.NotFound("Token not found");
+
+        var newTokens = _jwtService.GenerateJwtTokens(userDB.Id);
+
+        userDB.RefreshToken[tokenIndex] = newTokens.refreshToken;
+        await _usersService.UpdateAsync(userDB.Id, userDB);
+
+        return Results.Ok(new { accessToken = newTokens.accessToken, refreshToken = newTokens.refreshToken });
     }
 }
