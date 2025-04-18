@@ -26,6 +26,14 @@ public class MusicService
             databaseSettings.Value.YTMusicCollectionName);
     }
 
+    public async Task<AlbumDB?> Find(string id, EPlatform platform) =>
+        platform switch
+        {
+            EPlatform.YTMusic => await _ytMusicCollection.Find(x => x.Id == id).FirstOrDefaultAsync(),
+            _ => throw new ArgumentException("Invalid platform", nameof(platform))
+        };
+
+
     public async Task AddAlbum(AlbumDB albumDB, EPlatform platform)
     {
         var collection = platform switch

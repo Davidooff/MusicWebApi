@@ -24,7 +24,14 @@ public class MusicFileService
 
     public async Task UploadStream(AlbumDB album, (string id, Stream stream)[] fileStreams, EPlatform platform)
     {
+        foreach (var (id, stream) in fileStreams) {
+            string search = id + platform switch { 
+                EPlatform.YTMusic => "YT", 
+                _ =>throw new ArgumentException("Invalid platform", nameof(platform)) };
+            var foundEl = _bucket.Find(search).FirstOrDefault();
+            if (foundEl != null) continue;
 
+        }
     }
        
 
