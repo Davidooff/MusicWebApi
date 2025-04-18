@@ -1,19 +1,19 @@
-﻿using System.Text;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using MongoDB.Driver;
-using MusicWebApi.Data.Models;
+using MusicWebApi.src.Domain.Models;
+using MusicWebApi.src.Infrastructure.Options;
 
-namespace MusicWebApi.Data.Services;
+namespace MusicWebApi.src.Infrastructure.Services;
 public enum EPlatform
 {
-    YTMusic
+    YTMusic = 0
 }
 
-public class MusicService
+public class MusicRepository
 {
     private readonly IMongoCollection<AlbumDB> _ytMusicCollection;
 
-    public MusicService(
+    public MusicRepository(
         IOptions<DatabaseSettings> databaseSettings)
     {
         var mongoClient = new MongoClient(
@@ -65,6 +65,5 @@ public class MusicService
         };
         await _.ReplaceOneAsync(x => x.Id == albumDB.Id, albumDB);
     }
-
 }
 

@@ -1,22 +1,22 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using MusicWebApi.Data.Models;
-using MusicWebApi.Data.Services;
-using MusicWebApi.Models;
-using MusicWebApi.Services;
+using MusicWebApi.src.Api.Dto;
+using MusicWebApi.src.Application.Services;
+using MusicWebApi.src.Domain.Models;
+using MusicWebApi.src.Infrastructure.Services;
 
-namespace MusicWebApi.Controllers;
+namespace MusicWebApi.src.Api;
 
 [ApiController]
 [Route("users")]
 public class UsersController : ControllerBase
 {
-    private readonly UsersService _usersService;
+    private readonly UsersRepository _usersService;
     private readonly JwtService _jwtService;
     private readonly PasswordHasher<UserAuth> _pwHasher = new PasswordHasher<UserAuth>();
 
 
-    public UsersController(UsersService usersService, JwtService jwtService)
+    public UsersController(UsersRepository usersService, JwtService jwtService)
     {
         _usersService = usersService ?? throw new ArgumentNullException(nameof(usersService));
         _jwtService = jwtService ?? throw new ArgumentNullException(nameof(jwtService));
@@ -55,7 +55,7 @@ public class UsersController : ControllerBase
         {
             var tokens = _jwtService.GenerateJwtTokens(userDB.Id);
             await _usersService.AddToken(userDB.Id, tokens.refreshToken);
-            return Results.Ok(new { accessToken = tokens.accessToken, refreshToken = tokens.refreshToken });
+            return Results.Ok(new { tokens.accessToken, tokens.refreshToken });
         }
 
         return Results.Unauthorized();
@@ -78,6 +78,6 @@ public class UsersController : ControllerBase
         userDB.RefreshToken[tokenIndex] = newTokens.refreshToken;
         await _usersService.UpdateAsync(userDB.Id, userDB);
 
-        return Results.Ok(new { accessToken = newTokens.accessToken, refreshToken = newTokens.refreshToken });
+        return Results.Ok(new { newTokens.accessToken, newTokens.refreshToken });
     }
 }

@@ -1,13 +1,13 @@
 using FluentValidation;
-using MusicWebApi.Data;
-using MusicWebApi.Models;
-using MusicWebApi.Services;
-using MusicWebApi.Validators;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using SharpGrip.FluentValidation.AutoValidation.Mvc.Extensions;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using MusicWebApi.Data.Services;
+using MusicWebApi.src.Application.Services;
+using MusicWebApi.src.Infrastructure.Services;
+using MusicWebApi.src.Application.Options;
+using MusicWebApi.src.Infrastructure.Options;
+using MusicWebApi.src.Api.Dto;
+using MusicWebApi.src.Api.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +15,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<IValidator<UserAuth>, UserValidator>();
+//builder.Services.AddScoped<IValidator<MusicSearch>, MusicSearchValidator>();
 builder.Services.AddFluentValidationAutoValidation();
 
 // Add services to the container.
@@ -50,7 +51,8 @@ builder.Services.AddAuthentication()
 });
 
 builder.Services.AddSingleton<JwtService>();
-builder.Services.AddSingleton<UsersService>();
+builder.Services.AddSingleton<UsersRepository>();
+builder.Services.AddSingleton<PlatformsService>();
 
 builder.Services.AddControllers();
 

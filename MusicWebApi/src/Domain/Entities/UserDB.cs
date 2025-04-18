@@ -1,7 +1,7 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace MusicWebApi.Data.Models;
+namespace MusicWebApi.src.Domain.Models;
 
 public class UserDB
 {

@@ -3,9 +3,9 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using MusicWebApi.Models;
+using MusicWebApi.src.Application.Options;
 
-namespace MusicWebApi.Services;
+namespace MusicWebApi.src.Application.Services;
 
 public class JwtService
 {

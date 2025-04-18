@@ -1,16 +1,17 @@
 ﻿using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using MongoDB.Driver.GridFS;
-using MusicWebApi.Data.Models;
+using MusicWebApi.src.Domain.Models;
+using MusicWebApi.src.Infrastructure.Options;
 
-namespace MusicWebApi.Data.Services;
+namespace MusicWebApi.src.Infrastructure.Services;
 
-public class MusicFileService
+public class MusicFileRepository
 {
     private readonly GridFSBucket _bucket;
 
 
-    public MusicFileService(
+    public MusicFileRepository(
         IOptions<DatabaseSettings> databaseSettings)
     {
         var mongoClient = new MongoClient(

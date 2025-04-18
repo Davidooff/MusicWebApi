@@ -1,7 +1,7 @@
 ﻿using FluentValidation;
-using MusicWebApi.Models;
+using MusicWebApi.src.Api.Dto;
 
-namespace MusicWebApi.Validators;
+namespace MusicWebApi.src.Api.Validators;
 
 public class UserValidator : AbstractValidator<UserAuth>
 {

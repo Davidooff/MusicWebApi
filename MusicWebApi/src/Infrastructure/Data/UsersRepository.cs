@@ -1,9 +1,9 @@
 ﻿using Microsoft.Extensions.Options;
 using MongoDB.Driver;
-using MusicWebApi.Data;
-using MusicWebApi.Data.Models;
+using MusicWebApi.src.Domain.Models;
+using MusicWebApi.src.Infrastructure.Options;
 
-namespace MusicWebApi.Data.Services;
+namespace MusicWebApi.src.Infrastructure.Services;
 
 public class UserSerchOptions
 {
@@ -12,11 +12,11 @@ public class UserSerchOptions
     public string? Email { get; set; }
 }
 
-public class UsersService
+public class UsersRepository
 {
     private readonly IMongoCollection<UserDB> _usersCollection;
 
-    public UsersService(
+    public UsersRepository(
         IOptions<DatabaseSettings> databaseSettings)
     {
         var mongoClient = new MongoClient(
