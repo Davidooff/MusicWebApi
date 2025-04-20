@@ -1,4 +1,4 @@
-﻿using MusicWebApi.src.Application.Dto;
+﻿using MusicWebApi.src.Application.Entities;
 using MusicWebApi.src.Application.Interfaces;
 using YouTubeMusicAPI.Client;
 using YouTubeMusicAPI.Models;
@@ -7,13 +7,13 @@ using YouTubeMusicAPI.Models.Streaming;
 namespace MusicWebApi.src.Application.Services;
 public class YTMusicService : IPlatform
 {
-    private readonly ILogger logger; // Fixes IDE0044: Make field readonly
+    private readonly ILogger logger;
 
     private readonly YouTubeMusicClient client;
 
     public YTMusicService(ILogger logger)
     {
-        this.logger = logger ?? throw new ArgumentNullException(nameof(logger)); // Fixes CS8618: Ensures logger is initialized
+        this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         client = new YouTubeMusicClient(logger); // Ensures client is initialized
     }
 
@@ -64,14 +64,6 @@ public class YTMusicService : IPlatform
         Stream stream = await highestAudioStreamInfo.GetStreamAsync();
 
         return stream;
-    }
-
-    private static void PrintObject(object obj)
-    {
-        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(obj, new System.Text.Json.JsonSerializerOptions
-        {
-            WriteIndented = true
-        }));
     }
 }
 

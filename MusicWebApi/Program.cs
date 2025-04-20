@@ -3,11 +3,12 @@ using SharpGrip.FluentValidation.AutoValidation.Mvc.Extensions;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using MusicWebApi.src.Application.Services;
-using MusicWebApi.src.Infrastructure.Services;
 using MusicWebApi.src.Application.Options;
-using MusicWebApi.src.Infrastructure.Options;
 using MusicWebApi.src.Api.Dto;
 using MusicWebApi.src.Api.Validators;
+using MusicWebApi.src.Infrastructure.Options;
+using MusicWebApi.src.Infrastructure.Database;
+using MusicWebApi.src.Infrastructure.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,7 +16,6 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<IValidator<UserAuth>, UserValidator>();
-//builder.Services.AddScoped<IValidator<MusicSearch>, MusicSearchValidator>();
 builder.Services.AddFluentValidationAutoValidation();
 
 // Add services to the container.
@@ -25,6 +25,10 @@ builder.Services.Configure<DatabaseSettings>(
 // Register JwtSettings configuration
 builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection("Jwt"));
+
+builder.Services.Configure<RedisSettings>(
+    builder.Configuration.GetSection("TokenSettings"));
+
 builder.Services.AddAuthentication()
 .AddJwtBearer("some-scheme", jwtOptions =>
 {
@@ -52,6 +56,8 @@ builder.Services.AddAuthentication()
 
 builder.Services.AddSingleton<JwtService>();
 builder.Services.AddSingleton<UsersRepository>();
+builder.Services.AddSingleton<AuthService>();
+builder.Services.AddSingleton<TokenRepository>();
 builder.Services.AddSingleton<PlatformsService>();
 
 builder.Services.AddControllers();

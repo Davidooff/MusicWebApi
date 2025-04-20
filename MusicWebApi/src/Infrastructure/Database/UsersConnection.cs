@@ -1,9 +1,10 @@
 ﻿using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using MusicWebApi.src.Domain.Entities;
 using MusicWebApi.src.Domain.Models;
 using MusicWebApi.src.Infrastructure.Options;
 
-namespace MusicWebApi.src.Infrastructure.Services;
+namespace MusicWebApi.src.Infrastructure.Database;
 
 public class UserSerchOptions
 {
@@ -34,9 +35,9 @@ public class UsersRepository
         if (search.Id == null && search.Email == null)
             return null;
 
-        return await _usersCollection.Find(x => 
-        search.Id == null || search.Id != null && x.Id == search.Id || 
-        search.Id == null || search.Email != null && x.Email == search.Email)
+        return await _usersCollection.Find(x =>
+            (search.Id == null || x.Id == search.Id) &&
+            (search.Email == null || x.Email == search.Email))
             .FirstOrDefaultAsync();
     }
 
@@ -49,9 +50,18 @@ public class UsersRepository
     public async Task RemoveAsync(string id) =>
         await _usersCollection.DeleteOneAsync(x => x.Id == id);
 
-    public async Task AddToken(string id, string token) =>
+    public async Task AddToken(string id, Session session) =>
         await _usersCollection.UpdateOneAsync(
             x => x.Id == id,
-            Builders<UserDB>.Update.Push(x => x.RefreshToken, token));
+            Builders<UserDB>.Update.Push(x => x.Sessions, session));
+
+    public async Task<bool> RefreshToken(string id, string token)
+    {
+        var action =  await _usersCollection.UpdateOneAsync(
+            x => x.Id == id && x.Sessions.Any(s => s.RefreshToken == token),
+            Builders<UserDB>.Update.Set("sessions.$.RefreshToken", token));
+
+        return action.IsAcknowledged;
+    }
 }
 

@@ -1,5 +1,6 @@
-﻿using MusicWebApi.src.Application.Dto;
-using YouTubeMusicAPI.Models.Search;
+﻿
+
+using MusicWebApi.src.Application.Entities;
 
 namespace MusicWebApi.src.Application.Interfaces;
 

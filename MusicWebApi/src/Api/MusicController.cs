@@ -23,18 +23,14 @@ public class MusicController : ControllerBase
     [HttpGet("{serviceId}/stream/{elId}")]
     public async Task Stream(string serviceId, string elId)
     {
-        // 1. grab your not‐yet‐complete source stream
         var source = await _platformsService.StreamTrack(elId, serviceId);
 
-        // 2. tell the client what kind of bytes these are
-        Response.ContentType = "application/octet-stream"; // or e.g. "audio/mpeg"
+        Response.ContentType = "application/octet-stream"; 
 
-        // 3. disable ASP.NET Core buffering so flushes go straight out
         HttpContext.Features
             .Get<Microsoft.AspNetCore.Http.Features.IHttpResponseBodyFeature>()
             .DisableBuffering();
 
-        // 4. read/write loop: Kestrel will automatically chunk for you
         var buffer = new byte[81920];
         while (await source.ReadAsync(buffer, 0, buffer.Length) is var bytesRead)
         {

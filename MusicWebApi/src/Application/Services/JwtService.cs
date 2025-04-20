@@ -21,9 +21,9 @@ public class JwtService
             SecurityAlgorithms.HmacSha256);
     }
 
-    public (string accessToken, string refreshToken) GenerateJwtTokens(string userId)
+    public (string accessToken, string refreshToken) GenerateJwtTokens(string userId, string sessionId)
     {
-        return (GenerateToken(userId, _jwtSettings.accessTokenExpiration),
+        return (GenerateToken(sessionId, _jwtSettings.accessTokenExpiration),
             GenerateToken(userId, _jwtSettings.refreshTokenExpiration));
     }
 

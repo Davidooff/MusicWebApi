@@ -1,13 +1,10 @@
 ﻿using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using MusicWebApi.src.Application.Entities;
 using MusicWebApi.src.Domain.Models;
 using MusicWebApi.src.Infrastructure.Options;
 
-namespace MusicWebApi.src.Infrastructure.Services;
-public enum EPlatform
-{
-    YTMusic = 0
-}
+namespace MusicWebApi.src.Infrastructure.Database;
 
 public class MusicRepository
 {

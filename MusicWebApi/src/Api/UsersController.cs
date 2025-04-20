@@ -1,9 +1,15 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using System.Data;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using MusicWebApi.src.Api.Dto;
+using MusicWebApi.src.Application.Entities;
 using MusicWebApi.src.Application.Services;
+using MusicWebApi.src.Domain.Entities;
 using MusicWebApi.src.Domain.Models;
-using MusicWebApi.src.Infrastructure.Services;
+using MusicWebApi.src.Infrastructure.Database;
+using MusicWebApi.src.Infrastructure.Redis;
+using UAParser;
 
 namespace MusicWebApi.src.Api;
 
@@ -13,71 +19,113 @@ public class UsersController : ControllerBase
 {
     private readonly UsersRepository _usersService;
     private readonly JwtService _jwtService;
+    private readonly AuthService _authService;
     private readonly PasswordHasher<UserAuth> _pwHasher = new PasswordHasher<UserAuth>();
 
-
-    public UsersController(UsersRepository usersService, JwtService jwtService)
+    public UsersController(UsersRepository usersService, JwtService jwtService, TokenRepository tokenRepository, AuthService authService)
     {
         _usersService = usersService ?? throw new ArgumentNullException(nameof(usersService));
         _jwtService = jwtService ?? throw new ArgumentNullException(nameof(jwtService));
+        _authService = authService ?? throw new ArgumentNullException(nameof(authService));
     }
 
     [HttpPost("new")]
     public async Task<IResult> newUser(UserAuth newUser)
     {
-        UserSerchOptions search = new UserSerchOptions { Email = newUser.Email };
-
-        if (await _usersService.GetAsync(search) is not null)
-            return Results.Conflict("User with this email already exists");
-
-        await _usersService.CreateAsync(new UserDB
+        try
         {
-            Email = newUser.Email,
-            Password = _pwHasher.HashPassword(newUser, newUser.Password)
-        });
-
-        return Results.Ok();
+            var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
+            var session = GetSessionInfo(userAgent);
+            var newTokens = await _authService.Create(newUser, session);
+            return Results.Ok(new {newTokens.accessToken, newTokens.refreshToken});
+        } catch (MethodAccessException) // User is possibly bot (GetSessionInfo)
+        {
+            return Results.Forbid();
+        } catch (ConstraintException)
+        {
+            return Results.Problem("User already exists");
+        } catch 
+        {
+            return Results.InternalServerError();
+        }
     }
 
     [HttpPost("auth")]
     public async Task<IResult> Auth(UserAuth user)
     {
-        UserDB? userDB = await _usersService.GetAsync(new UserSerchOptions { Email = user.Email });
-
-        if (userDB == null)
+        try
         {
-            return Results.NotFound("User not found");
-        }
-
-        var verificationResult = _pwHasher.VerifyHashedPassword(user, userDB.Password, user.Password);
-
-        if (verificationResult == PasswordVerificationResult.Success)
+            var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
+            var session = GetSessionInfo(userAgent);
+            var newTokens = await _authService.Auth(user, session);
+            return Results.Ok(new { newTokens.accessToken,  newTokens.refreshToken});
+        } catch (MethodAccessException) // Bot data in user agent
         {
-            var tokens = _jwtService.GenerateJwtTokens(userDB.Id);
-            await _usersService.AddToken(userDB.Id, tokens.refreshToken);
-            return Results.Ok(new { tokens.accessToken, tokens.refreshToken });
+            return Results.Forbid();
         }
-
-        return Results.Unauthorized();
+        catch (InvalidOperationException) // User not found
+        {
+            return Results.NotFound();
+        }
+        catch (AccessViolationException) // Password wrong
+        {
+            return Results.Unauthorized();
+        } catch
+        {
+            return Results.InternalServerError();
+        }
     }
 
     [HttpPatch("updateToken")]
     public async Task<IResult> updateToken([FromBody] string refreshToken)
     {
-        string id = _jwtService.GetIdFromToken(refreshToken);
+        var sessionId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-        UserDB? userDB = await _usersService.GetAsync(new UserSerchOptions { Id = id });
+        if (sessionId is null) return Results.Forbid();
 
-        if (userDB == null) return Results.NotFound("User not found");
+        try
+        {
+            var tokens = await _authService.RefreshToken(sessionId, refreshToken);
+            return Results.Ok(tokens);
+        } catch (ArgumentNullException) // refresh token don't have user id
+        {
+            return Results.Forbid();
+        }
+        catch
+        {
+            return Results.InternalServerError();
+        }
+    }
 
-        int tokenIndex = Array.IndexOf(userDB.RefreshToken, refreshToken);
-        if (tokenIndex == -1) return Results.NotFound("Token not found");
 
-        var newTokens = _jwtService.GenerateJwtTokens(userDB.Id);
+    /// <summary>
+    /// Get user platform from userAgent string
+    /// </summary>
+    /// <param name="userAgent">userAgent string.</param>
+    /// <exception cref="MethodAccessException">
+    /// Bot exception
+    /// </exception>
+    private (string name, ESessionType type) GetSessionInfo(string userAgent)
+    {
+        var parser = Parser.GetDefault();
+        ClientInfo client = parser.Parse(userAgent);
 
-        userDB.RefreshToken[tokenIndex] = newTokens.refreshToken;
-        await _usersService.UpdateAsync(userDB.Id, userDB);
+        // Detect device type
+        var deviceType = client.Device.Family.ToLower();
+        var os = client.OS.Family.ToLower();
 
-        return Results.Ok(new { newTokens.accessToken, newTokens.refreshToken });
+        // Classify platform
+        if (client.Device.IsSpider) // Skip bots/crawlers
+            throw new MethodAccessException();
+
+        ESessionType esession = ESessionType.Other;
+        if (deviceType.Contains("mobile"))
+            esession = ESessionType.Phone;
+        else if (deviceType.Contains("tablet"))
+            esession = ESessionType.Tablet;
+        else if (deviceType.Contains("desktop") || os.Contains("windows") || os.Contains("mac"))
+            esession = ESessionType.PC;
+
+        return (client.UA.Family, esession);
     }
 }

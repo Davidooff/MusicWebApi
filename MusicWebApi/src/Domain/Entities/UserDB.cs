@@ -1,5 +1,6 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using MusicWebApi.src.Domain.Entities;
 
 namespace MusicWebApi.src.Domain.Models;
 
@@ -13,5 +14,5 @@ public class UserDB
 
     public string Password { get; set; } = null!;
 
-    public string[] RefreshToken { get; set; } = [];
+    public Session[] Sessions { get; set; } = [];
 }

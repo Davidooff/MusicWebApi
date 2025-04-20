@@ -1,10 +1,11 @@
 ﻿using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using MongoDB.Driver.GridFS;
+using MusicWebApi.src.Application.Entities;
 using MusicWebApi.src.Domain.Models;
 using MusicWebApi.src.Infrastructure.Options;
 
-namespace MusicWebApi.src.Infrastructure.Services;
+namespace MusicWebApi.src.Infrastructure.Database;
 
 public class MusicFileRepository
 {

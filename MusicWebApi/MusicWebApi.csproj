@@ -11,9 +11,11 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.4" />
     <PackageReference Include="MongoDB.Bson" Version="3.3.0" />
     <PackageReference Include="MongoDB.Driver" Version="3.3.0" />
+    <PackageReference Include="NRedisStack" Version="0.13.3" />
     <PackageReference Include="SharpGrip.FluentValidation.AutoValidation.Mvc" Version="1.5.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.8.0" />
+    <PackageReference Include="UAParser" Version="3.1.47" />
     <PackageReference Include="YouTubeMusicAPI" Version="2.2.8" />
   </ItemGroup>
 
