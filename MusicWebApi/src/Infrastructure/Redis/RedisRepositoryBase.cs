@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Options;
-using MusicWebApi.src.Infrastructure.Options;
+using MusicWebApi.src.Domain.Options;
 using StackExchange.Redis;
 using System;
 using System.Security.Cryptography;

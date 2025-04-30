@@ -2,7 +2,7 @@
 using MongoDB.Driver;
 using MusicWebApi.src.Domain.Entities;
 using MusicWebApi.src.Domain.Models;
-using MusicWebApi.src.Infrastructure.Options;
+using MusicWebApi.src.Domain.Options;
 
 namespace MusicWebApi.src.Infrastructure.Database;
 

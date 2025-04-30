@@ -1,12 +1,8 @@
-﻿using System.Data;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using MusicWebApi.src.Api.Dto;
-using MusicWebApi.src.Application.Entities;
 using MusicWebApi.src.Application.Services;
 using MusicWebApi.src.Domain.Entities;
-using MusicWebApi.src.Domain.Models;
 using MusicWebApi.src.Infrastructure.Database;
 using MusicWebApi.src.Infrastructure.Redis;
 using UAParser;
@@ -15,6 +11,7 @@ namespace MusicWebApi.src.Api;
 
 [ApiController]
 [Route("users")]
+[ServiceFilter(typeof(UsersExceptionFilter))]
 public class UsersController : ControllerBase
 {
     private readonly UsersRepository _usersService;
@@ -32,69 +29,26 @@ public class UsersController : ControllerBase
     [HttpPost("new")]
     public async Task<IResult> newUser(UserAuth newUser)
     {
-        try
-        {
-            var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
-            var session = GetSessionInfo(userAgent);
-            var newTokens = await _authService.Create(newUser, session);
-            return Results.Ok(new {newTokens.accessToken, newTokens.refreshToken});
-        } catch (MethodAccessException) // User is possibly bot (GetSessionInfo)
-        {
-            return Results.Forbid();
-        } catch (ConstraintException)
-        {
-            return Results.Problem("User already exists");
-        } catch 
-        {
-            return Results.InternalServerError();
-        }
+        var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
+        var session = GetSessionInfo(userAgent);
+        var newTokens = await _authService.Create(newUser, session);
+        return Results.Ok(new {newTokens.accessToken, newTokens.refreshToken});
     }
 
     [HttpPost("auth")]
     public async Task<IResult> Auth(UserAuth user)
     {
-        try
-        {
-            var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
-            var session = GetSessionInfo(userAgent);
-            var newTokens = await _authService.Auth(user, session);
-            return Results.Ok(new { newTokens.accessToken,  newTokens.refreshToken});
-        } catch (MethodAccessException) // Bot data in user agent
-        {
-            return Results.Forbid();
-        }
-        catch (InvalidOperationException) // User not found
-        {
-            return Results.NotFound();
-        }
-        catch (AccessViolationException) // Password wrong
-        {
-            return Results.Unauthorized();
-        } catch
-        {
-            return Results.InternalServerError();
-        }
+        var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
+        var session = GetSessionInfo(userAgent);
+        var newTokens = await _authService.Auth(user, session);
+        return Results.Ok(new { newTokens.accessToken,  newTokens.refreshToken});
     }
 
     [HttpPatch("updateToken")]
     public async Task<IResult> updateToken([FromBody] string refreshToken)
     {
-        var sessionId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (sessionId is null) return Results.Forbid();
-
-        try
-        {
-            var tokens = await _authService.RefreshToken(sessionId, refreshToken);
-            return Results.Ok(tokens);
-        } catch (ArgumentNullException) // refresh token don't have user id
-        {
-            return Results.Forbid();
-        }
-        catch
-        {
-            return Results.InternalServerError();
-        }
+        var tokens = await _authService.RefreshToken(refreshToken);
+        return Results.Ok(tokens);
     }
 
 

@@ -1,4 +1,4 @@
-﻿namespace MusicWebApi.src.Application.Options;
+﻿namespace MusicWebApi.src.Domain.Options;
 public class JwtSettings
 {
     public string Secret { get; set; } = string.Empty;

@@ -3,7 +3,8 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using MusicWebApi.src.Application.Options;
+using MusicWebApi.src.Domain.Exceptions.Auth;
+using MusicWebApi.src.Domain.Options;
 
 namespace MusicWebApi.src.Application.Services;
 
@@ -56,8 +57,15 @@ public class JwtService
             ValidAudience = _jwtSettings.Audience,
             ValidateLifetime = true 
         };
-        var id = tokenHandler.ValidateToken(token, tokenValidationParameters, out _)
-            .FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new Exception("Token body id is null"); ;
+        string id;
+        try
+        {
+            id = tokenHandler.ValidateToken(token, tokenValidationParameters, out _)
+                .FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new InvalidToken(token);
+        } catch
+        {
+            throw new InvalidToken(token);
+        }
 
         return id;
     }

@@ -1,4 +1,4 @@
-﻿namespace MusicWebApi.src.Infrastructure.Options;
+﻿namespace MusicWebApi.src.Domain.Options;
 
 public class DatabaseSettings
 {

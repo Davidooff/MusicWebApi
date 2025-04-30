@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Options;
-using MusicWebApi.src.Infrastructure.Options;
 using NRedisStack.RedisStackCommands;
 using NRedisStack.Search.Literals.Enums;
 using NRedisStack.Search;
+using MusicWebApi.src.Domain.Options;
 
 
 namespace MusicWebApi.src.Infrastructure.Redis;

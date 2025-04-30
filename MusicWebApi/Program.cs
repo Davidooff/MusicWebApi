@@ -3,12 +3,11 @@ using SharpGrip.FluentValidation.AutoValidation.Mvc.Extensions;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using MusicWebApi.src.Application.Services;
-using MusicWebApi.src.Application.Options;
 using MusicWebApi.src.Api.Dto;
 using MusicWebApi.src.Api.Validators;
-using MusicWebApi.src.Infrastructure.Options;
 using MusicWebApi.src.Infrastructure.Database;
 using MusicWebApi.src.Infrastructure.Redis;
+using MusicWebApi.src.Domain.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
