@@ -1,4 +1,4 @@
-﻿namespace MusicWebApi.src.Application.Entities
+﻿namespace MusicWebApi.src.Domain.Entities
 {
     public enum EPlatform
     {

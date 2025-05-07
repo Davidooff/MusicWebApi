@@ -1,4 +1,6 @@
-﻿namespace MusicWebApi.src.Api.Dto;
+﻿using MusicWebApi.src.Domain.Entities;
+
+namespace MusicWebApi.src.Api.Dto;
 
 public enum MusicSearchOptions
 {
@@ -8,7 +10,8 @@ public enum MusicSearchOptions
 
 public class MusicSearch
 {
-    public string search { get; set; } = null!;
-    public MusicSearchOptions SearchOption { get; set; }
+    public string Search { get; set; } = null!;
+
+    public EPlatform Platform { get; set; }
 }
 

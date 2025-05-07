@@ -52,11 +52,16 @@ builder.Services.AddAuthentication()
 
     jwtOptions.MapInboundClaims = false;
 });
-
-builder.Services.AddSingleton<JwtService>();
-builder.Services.AddSingleton<UsersRepository>();
-builder.Services.AddSingleton<AuthService>();
+//redis
 builder.Services.AddSingleton<TokenRepository>();
+//mongo
+builder.Services.AddSingleton<UsersRepository>();
+builder.Services.AddSingleton<MusicFileRepository>();
+builder.Services.AddSingleton<MusicRepository>();
+
+//services
+builder.Services.AddSingleton<JwtService>();
+builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<PlatformsService>();
 
 builder.Services.AddControllers();

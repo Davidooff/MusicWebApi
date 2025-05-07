@@ -8,5 +8,11 @@ public class DatabaseSettings
 
     public string UsersCollectionName { get; set; } = null!;
 
-    public string YTMusicCollectionName { get; set; } = null!;
+    public string YTTracks { get; set; } = null!;
+    
+    public string YTPlaylists { get; set; } = null!;
+
+    public string YTMusicBucket { get; set; } = null!;
+
+    public string UserAbums { get; set; } = null!;
 }

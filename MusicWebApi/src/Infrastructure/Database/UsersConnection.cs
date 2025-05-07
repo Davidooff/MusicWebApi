@@ -57,7 +57,7 @@ public class UsersRepository
 
     public async Task<bool> RefreshToken(string id, string token)
     {
-        var action =  await _usersCollection.UpdateOneAsync(
+        var action = await _usersCollection.UpdateOneAsync(
             x => x.Id == id && x.Sessions.Any(s => s.RefreshToken == token),
             Builders<UserDB>.Update.Set("sessions.$.RefreshToken", token));
 

@@ -1,37 +1,61 @@
-﻿using MusicWebApi.src.Application.Entities;
-using MusicWebApi.src.Application.Interfaces;
+﻿using MusicWebApi.src.Application.Interfaces;
+using MusicWebApi.src.Domain.Entities;
+using MusicWebApi.src.Domain.Models;
+using MusicWebApi.src.Infrastructure.Database;
 
 namespace MusicWebApi.src.Application.Services;
 
-public class PlatformsService : PlatformManager
+public class PlatformsService
 {
     private readonly YTMusicService _ytMusicService;
-    public PlatformsService(ILogger<PlatformsService> logger)
+    private readonly MusicFileRepository _musicFileRepository;
+    private readonly MusicRepository _musicRepository; 
+    public PlatformsService(ILogger<PlatformsService> logger, MusicRepository musicRepository, MusicFileRepository musicFileRepository)
     {
         _ytMusicService = new YTMusicService(logger);
+        _musicRepository = musicRepository ?? throw new ArgumentNullException(nameof(musicRepository));
+        _musicFileRepository = musicFileRepository ?? throw new ArgumentNullException(nameof(musicFileRepository));
     }
 
-    private IPlatform ChoosePlatform(string platform)
-    {
-
-        if (!Enum.TryParse<EPlatform>(platform, out var idPlatform))
-            throw PlatformManager.UnknownServiceExeption(platform);
-
-        return idPlatform switch
+    private IPlatform ChoosePlatform(EPlatform platform) =>
+        platform switch
         {
             EPlatform.YTMusic => _ytMusicService,
-            _ => throw PlatformManager.UnknownServiceExeption(platform)
+            _ => throw new ArgumentException(nameof(platform), "Invalid platform")
         };
-    }
 
-
-    public async Task<IEnumerable<TrackData>> Search(string query, string platformId) =>
+    public async Task<IEnumerable<TrackData>> Search(string query, EPlatform platformId) =>
         await ChoosePlatform(platformId).Search(query);
 
+    public async Task<AlbumDB?> GetAlbum(string albumId, EPlatform platformId) =>
+        await ChoosePlatform(platformId).GetAlbum(albumId);
 
-    public async Task<Stream> StreamTrack(string trackId, string platformId)
+
+    public async Task<Stream?> StreamTrack(string trackId, EPlatform platformId)
     {
-        return await ChoosePlatform(platformId).StreamTrack(trackId);
+        Stream? downloadedStream = await _musicFileRepository.DownloadStream(trackId, platformId);
+
+        if ( downloadedStream is null)
+            downloadedStream = await ChoosePlatform(platformId).StreamTrack(trackId);
+            
+        if (downloadedStream is Stream stream)
+            return stream;
+
+        return null;
+    }
+
+    public async Task<(Stream stream, bool isListeningAdded)?> ListenTrack(string trackId, EPlatform platformId)
+    {
+        Task<Stream?> downloadedStream = _musicFileRepository.DownloadStream(trackId, platformId);
+        Task<bool> isAdded = _musicRepository.AddListening(trackId, platformId);
+
+        if (await downloadedStream is null)
+            downloadedStream = ChoosePlatform(platformId).StreamTrack(trackId);
+
+        if (await downloadedStream is Stream stream)
+            return (stream, await isAdded);
+
+        return null;
     }
 }
 

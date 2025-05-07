@@ -1,6 +1,4 @@
-﻿
-
-using MusicWebApi.src.Application.Entities;
+﻿using MusicWebApi.src.Domain.Entities;
 
 namespace MusicWebApi.src.Application.Interfaces;
 

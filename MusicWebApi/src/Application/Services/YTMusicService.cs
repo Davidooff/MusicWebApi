@@ -1,5 +1,6 @@
-﻿using MusicWebApi.src.Application.Entities;
-using MusicWebApi.src.Application.Interfaces;
+﻿using MusicWebApi.src.Application.Interfaces;
+using MusicWebApi.src.Domain.Entities;
+using MusicWebApi.src.Domain.Models;
 using YouTubeMusicAPI.Client;
 using YouTubeMusicAPI.Models;
 using YouTubeMusicAPI.Models.Search;
@@ -9,12 +10,12 @@ public class YTMusicService : IPlatform
 {
     private readonly ILogger logger;
 
-    private readonly YouTubeMusicClient client;
+    private readonly YouTubeMusicClient _client;
 
     public YTMusicService(ILogger logger)
     {
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        client = new YouTubeMusicClient(logger); // Ensures client is initialized
+        _client = new YouTubeMusicClient(logger); // Ensures client is initialized
     }
 
     private static TrackData Transform(SongSearchResult song)
@@ -31,31 +32,53 @@ public class YTMusicService : IPlatform
 
         // Fix for CS8601: Ensure thumbnailUrl is not null before assignment
         if (thumbnailUrl == null)
-        {
             throw new ArgumentException("Thumbnails cannot be null or empty", nameof(song.Thumbnails));
-        }
+       
 
-        return new TrackData()
+        return new ()
         {
             Id = song.Id,
             Name = song.Name,
-            Album = song.Album.Id != null ?
-                new IdNameGroup() { Id = song.Album.Id, Name = song.Album.Name, ImgUrl = thumbnailUrl } :
-                throw new ArgumentException("Parameter cannot be null", nameof(song.Album)),
-            Artists = ArtistsList.ToArray()
+            AlbumId = song.Album.Id ?? "",
+            EPlatform = EPlatform.YTMusic,
+            Artists = ArtistsList.ToArray(),
+            ImgUrl = thumbnailUrl,
+            Duration = (int)song.Duration.TotalSeconds,
         };
     }
 
     public async Task<IEnumerable<TrackData>> Search(string query)
     {
-        IEnumerable<SongSearchResult> searchResults = await client.SearchAsync<SongSearchResult>(query);
+        IEnumerable<SongSearchResult> searchResults = await _client.SearchAsync<SongSearchResult>(query);
         return searchResults.Select(Transform);
     }
+
+    public async Task<AlbumDB?> GetAlbum(string albumId)
+    {
+        var browseId = await _client.GetAlbumBrowseIdAsync(albumId);
+        var album = await _client.GetAlbumInfoAsync(browseId);
+
+        if (album == null)
+            return null;
+
+        return new AlbumDB()
+        {
+            PlatformId = album.Id,
+            Name = album.Name,
+            Trackes = album.Songs
+                .Select(el => new TrackInAlb() { Id = el.Id ?? "", Name = el.Name, Duration = (int)el.Duration.TotalSeconds })
+                .ToArray(),
+            Author = album.Artists.Select(el => 
+                new IdNameGroup() { Id = el.Id ?? "", Name = el.Name }).ToArray(),
+            ImgUrl = album.Thumbnails.Last().Url,
+        };
+    }
+
 
     public async Task<Stream> StreamTrack(string trackId)
     {
         Console.WriteLine(trackId);
-        StreamingData streamingData = await client.GetStreamingDataAsync(trackId);
+        StreamingData streamingData = await _client.GetStreamingDataAsync(trackId);
 
         MediaStreamInfo highestAudioStreamInfo = streamingData.StreamInfo
           .OfType<AudioStreamInfo>()

@@ -14,15 +14,10 @@ namespace MusicWebApi.src.Api;
 [ServiceFilter(typeof(UsersExceptionFilter))]
 public class UsersController : ControllerBase
 {
-    private readonly UsersRepository _usersService;
-    private readonly JwtService _jwtService;
     private readonly AuthService _authService;
-    private readonly PasswordHasher<UserAuth> _pwHasher = new PasswordHasher<UserAuth>();
 
-    public UsersController(UsersRepository usersService, JwtService jwtService, TokenRepository tokenRepository, AuthService authService)
+    public UsersController(AuthService authService)
     {
-        _usersService = usersService ?? throw new ArgumentNullException(nameof(usersService));
-        _jwtService = jwtService ?? throw new ArgumentNullException(nameof(jwtService));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
     }
 

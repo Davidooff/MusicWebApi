@@ -1,6 +1,6 @@
-﻿using Microsoft.Extensions.Options;
-using MongoDB.Driver;
-using MusicWebApi.src.Application.Entities;
+﻿using MongoDB.Driver;
+using Microsoft.Extensions.Options;
+using MusicWebApi.src.Domain.Entities;
 using MusicWebApi.src.Domain.Models;
 using MusicWebApi.src.Domain.Options;
 
@@ -8,10 +8,15 @@ namespace MusicWebApi.src.Infrastructure.Database;
 
 public class MusicRepository
 {
-    private readonly IMongoCollection<AlbumDB> _ytMusicCollection;
+    private readonly IMongoCollection<AlbumDB> _ytAlbumsCollection;
+    private readonly IMongoCollection<TrackDB> _ytTrackCollection;
 
-    public MusicRepository(
-        IOptions<DatabaseSettings> databaseSettings)
+    private static readonly UpdateDefinition<TrackDB> _incrementCounters =
+        Builders<TrackDB>.Update
+            .Inc(x => x.TimesListened.Total, 1)
+            .Inc(x => x.TimesListened.ThisWeek, 1);
+
+    public MusicRepository(IOptions<DatabaseSettings> databaseSettings)
     {
         var mongoClient = new MongoClient(
             databaseSettings.Value.ConnectionString);
@@ -19,48 +24,39 @@ public class MusicRepository
         var mongoDatabase = mongoClient.GetDatabase(
             databaseSettings.Value.DatabaseName);
 
-        _ytMusicCollection = mongoDatabase.GetCollection<AlbumDB>(
-            databaseSettings.Value.YTMusicCollectionName);
+        _ytAlbumsCollection = mongoDatabase.GetCollection<AlbumDB>(
+            databaseSettings.Value.YTPlaylists);
+
+        _ytTrackCollection = mongoDatabase.GetCollection<TrackDB>(
+            databaseSettings.Value.YTTracks);
+
     }
 
-    public async Task<AlbumDB?> Find(string id, EPlatform platform) =>
-        platform switch
-        {
-            EPlatform.YTMusic => await _ytMusicCollection.Find(x => x.Id == id).FirstOrDefaultAsync(),
-            _ => throw new ArgumentException("Invalid platform", nameof(platform))
-        };
+    protected IMongoCollection<AlbumDB> GetAlbumPlatform (EPlatform platform)=> _ytAlbumsCollection;
+    protected IMongoCollection<TrackDB> GetTrackPlatform(EPlatform platform) => _ytTrackCollection;
 
 
-    public async Task AddAlbum(AlbumDB albumDB, EPlatform platform)
+    /// <summary>
+    /// Add listening to the track.
+    /// </summary>
+    /// <returns>Is el was found</returns>
+    public async Task<bool> AddListening(string trackId, EPlatform platform)
     {
-        var collection = platform switch
-        {
-            EPlatform.YTMusic => _ytMusicCollection,
-            _ => throw new ArgumentException("Invalid platform", nameof(platform))
-        };
-        var filter = Builders<AlbumDB>.Filter.Eq(el => el.Id, albumDB.Id);
-        var el = _ytMusicCollection.Find(filter).FirstOrDefault();
-            
-        if (el is not null)
-        {
-            el.Trackes = el.Trackes.Concat(albumDB.Trackes)
-                  .GroupBy(kv => kv.Key)
-                  .ToDictionary(g => g.Key, g => g.Last().Value);
-            await UpdateAsync(albumDB, platform);
-        } else
-        {
-            await collection.InsertOneAsync(albumDB);
-        }
+        var collection = GetTrackPlatform(platform);
+        var filter = Builders<TrackDB>.Filter.Eq(el => el.PlatformId, trackId);
+        var updateResult = await collection.UpdateOneAsync(filter, _incrementCounters);
+
+        return updateResult.IsAcknowledged && updateResult.ModifiedCount != 0;
     }
 
-    public async Task UpdateAsync(AlbumDB albumDB, EPlatform platform)
+    public async Task<bool> AddAlbum(AlbumDB album, EPlatform platform)
     {
-        var _ = platform switch
-        {
-            EPlatform.YTMusic => _ytMusicCollection,
-            _ => throw new ArgumentException("Invalid platform", nameof(platform))
-        };
-        await _.ReplaceOneAsync(x => x.Id == albumDB.Id, albumDB);
+        var collection = GetAlbumPlatform(platform);
+        var filter = Builders<AlbumDB>.Filter.Eq(el => el.PlatformId, album.PlatformId);
+        var replaceOptions = new ReplaceOptions { IsUpsert = true };
+        var updateResult = await collection.ReplaceOneAsync(filter, album, replaceOptions);
+
+        return updateResult.IsAcknowledged && updateResult.ModifiedCount != 0;
     }
 }
 
