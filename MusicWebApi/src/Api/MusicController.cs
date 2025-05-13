@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using MusicWebApi.src.Api.Dto;
 using MusicWebApi.src.Application.Services;
 using MusicWebApi.src.Domain.Entities;
@@ -35,7 +34,6 @@ public class MusicController : ControllerBase
             return Results.NotFound();
         
         await _musicRepository.AddAlbum(result, search.Platform);
-        Console.WriteLine(JsonSerializer.Serialize(result));
         return Results.Ok(result);
     }
 

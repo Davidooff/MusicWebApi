@@ -7,9 +7,6 @@ public interface IPlatform
 {
     Task<IEnumerable<TrackData>> Search(string query);
     Task<Stream?> StreamTrack(string trackId);
-
     Task<AlbumDB?> GetAlbum(string albumId);
-
-    //Task<TrackData?> GetTrack(string trackId);
 }
 

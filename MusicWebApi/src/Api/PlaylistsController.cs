@@ -77,7 +77,7 @@ public class PlayListController : ControllerBase
             return Results.Unauthorized();
 
 
-        if(await _userAlbumRepository.RemoveTrack(trackDto.PlayListId, trackDto.TrackId, trackDto.EPlatform))
+        if (await _userAlbumRepository.RemoveTrack(trackDto.PlayListId, trackDto.TrackId, trackDto.EPlatform))
             return Results.Ok();
 
         return Results.NotFound();

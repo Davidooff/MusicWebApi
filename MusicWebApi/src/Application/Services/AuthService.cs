@@ -38,7 +38,7 @@ public class AuthService
     }
 
     /// <summary>
-    /// Creating user whith out tokens.
+    /// Creating user whithout tokens.
     /// </summary>
     /// <param name="userAuth">The amount to charge.</param>
     /// <exception cref="UserExists">
@@ -109,10 +109,7 @@ public class AuthService
             throw new WrongPassword(userAuth.Email);
 
         if (verificationResult == PasswordVerificationResult.SuccessRehashNeeded)
-        {
             user.Password = _pwHasher.HashPassword(userAuth, userAuth.Password);
-        }
-
         
         string sessionId = _tokenRepository.setSession(user.Id);
         var newTokens = _jwtService.GenerateJwtTokens(user.Id, sessionId);
