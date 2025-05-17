@@ -16,6 +16,23 @@ public class UsersController : ControllerBase
 {
     private readonly AuthService _authService;
 
+    private readonly CookieOptions accOptions = new CookieOptions
+    {
+        HttpOnly = true,
+        Secure = true,
+        SameSite = SameSiteMode.Strict,
+        MaxAge = TimeSpan.FromMinutes(15), 
+    };
+
+    private readonly CookieOptions refOptions = new CookieOptions
+    {
+        HttpOnly = true,
+        Secure = true,
+        SameSite = SameSiteMode.Strict,
+        MaxAge = TimeSpan.FromMinutes(60), 
+        Path = "/users/updateToken" 
+    };
+
     public UsersController(AuthService authService)
     {
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
@@ -27,7 +44,8 @@ public class UsersController : ControllerBase
         var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
         var session = GetSessionInfo(userAgent);
         var newTokens = await _authService.Create(newUser, session);
-        return Results.Ok(new {newTokens.accessToken, newTokens.refreshToken});
+        SetTokenCookies(newTokens);
+        return Results.Ok();
     }
 
     [HttpPost("auth")]
@@ -36,16 +54,27 @@ public class UsersController : ControllerBase
         var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
         var session = GetSessionInfo(userAgent);
         var newTokens = await _authService.Auth(user, session);
-        return Results.Ok(new { newTokens.accessToken,  newTokens.refreshToken});
+        SetTokenCookies(newTokens);
+        return Results.Ok();
     }
 
     [HttpPatch("updateToken")]
-    public async Task<IResult> updateToken([FromBody] string refreshToken)
+    public async Task<IResult> updateToken()
     {
+        var refreshToken = Request.Cookies["refreshToken"];
+        if (string.IsNullOrEmpty(refreshToken))
+            return Results.Unauthorized();
+
         var tokens = await _authService.RefreshToken(refreshToken);
-        return Results.Ok(tokens);
+        SetTokenCookies(tokens);
+        return Results.Ok();
     }
 
+    private void SetTokenCookies((string accessToken, string refreshToken) tokens)
+    {
+        Response.Cookies.Append("accessToken", tokens.accessToken, accOptions);
+        Response.Cookies.Append("refreshToken", tokens.refreshToken, refOptions);
+    }
 
     /// <summary>
     /// Get user platform from userAgent string
