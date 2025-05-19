@@ -6,7 +6,9 @@ using MusicWebApi.src.Domain.Entities;
 using MusicWebApi.src.Domain.Exceptions.Auth;
 using MusicWebApi.src.Domain.Models;
 using MusicWebApi.src.Infrastructure.Database;
+using MusicWebApi.src.Infrastructure.MailService;
 using MusicWebApi.src.Infrastructure.Redis;
+using MusicWebApi.src.Infrastructure.Redisk;
 
 namespace MusicWebApi.src.Application.Services;
 /// <summary>
@@ -18,53 +20,76 @@ public class AuthService
     private readonly UsersRepository _usersRepository;
     private readonly TokenRepository _tokenRepository;
     private readonly JwtService _jwtService;
+    private readonly EmailService _MailService;
+    private readonly VerifyMailRepo _verifyMailRepo;
     private readonly PasswordHasher<UserAuth> _pwHasher = new PasswordHasher<UserAuth>();
-    public AuthService(UsersRepository usersRepository, TokenRepository tokenRepository, JwtService jwtService)
+    public AuthService(UsersRepository usersRepository, TokenRepository tokenRepository, JwtService jwtService, VerifyMailRepo verifyMailRepo, EmailService emailService)
     {
         _usersRepository = usersRepository;
         _tokenRepository = tokenRepository;
+        _verifyMailRepo = verifyMailRepo;
+        _MailService = emailService;
         _jwtService = jwtService;
     }
 
-    private async Task CreateUser(UserAuth user, string? id, Session? session)
+    private async Task CreateUser(UserRegister user, string? id, Session? session, bool verified = false)
     {
         await _usersRepository.CreateAsync(new UserDB
         {
             Id = id,
+            Username = user.Username,
             Email = user.Email,
-            Password = user.Password,
-            Sessions = session != null ? new[] { session } : Array.Empty<Session>()
+            Password = _pwHasher.HashPassword(null, user.Password),
+            Sessions = session != null ? new[] { session } : Array.Empty<Session>(),
+            IsVerified = verified
         });
     }
 
     /// <summary>
-    /// Creating user whithout tokens.
+    /// Creating user (Email verification req).
     /// </summary>
     /// <param name="userAuth">The amount to charge.</param>
     /// <exception cref="UserExists">
     /// Thrown when User already created
     /// </exception>
-    /// 
-    public async Task
-        Create(UserAuth userAuth)
+    /// <returns>
+    /// Single token to verify email
+    /// </returns>
+    public async Task<string>
+        Create(UserRegister userAuth)
     {
         var user = await _usersRepository.GetAsync(new UserSerchOptions { Email = userAuth.Email });
 
         if (user != null)
             throw new UserExists(userAuth.Email);
 
-        await CreateUser(userAuth, null, null);
-       }
+        var userId = ObjectId.GenerateNewId().ToString();
+
+        await CreateUser(userAuth, userId, null);
+        try
+        {
+            short code = _verifyMailRepo.CreateCode();
+            var mail = _verifyMailRepo.Create(userId, userAuth.Email, code);
+            _MailService.SendCode(code, userAuth.Email);
+            await mail;
+            return _jwtService.GenerateToken(userId, 15);
+        }
+        catch (Exception e)
+        {
+            await _usersRepository.RemoveAsync(userId);
+            throw new Exception("Unable to create user", e);
+        }
+    }
 
     /// <summary>
-    /// Creating user whith tokens.
+    /// Creating user (Email verification not req).
     /// </summary>
     /// <param name="userAuth">The amount to charge.</param>
     /// <exception cref="UserExists">
     /// Thrown when User already created
     /// </exception>
     public async Task<(string accessToken, string refreshToken)> 
-        Create(UserAuth userAuth, (string sessionName, ESessionType sessionType) sessionInfo)
+        Create(UserRegister userAuth, (string sessionName, ESessionType sessionType) sessionInfo)
     {
         var user = await _usersRepository.GetAsync(new UserSerchOptions { Email = userAuth.Email });
 
@@ -75,13 +100,49 @@ public class AuthService
 
         string sessionId = _tokenRepository.setSession(userId);
         var tokens = _jwtService.GenerateJwtTokens(userId, sessionId);
-        Session session = new Session() { 
-            RefreshToken = tokens.refreshToken, 
-            Name = sessionInfo.sessionName, 
-            SessionType = sessionInfo.sessionType 
+        Session session = new Session()
+        {
+            RefreshToken = tokens.refreshToken,
+            Name = sessionInfo.sessionName,
+            SessionType = sessionInfo.sessionType
         };
 
-        await CreateUser(userAuth, userId, session);
+        await CreateUser(userAuth, userId, session, verified: true);
+        return tokens;
+    }
+
+    public async Task<(string accessToken, string refreshToken)> 
+        Verify(string id, short code,(string sessionName, ESessionType sessionType) sessionInfo)
+    {
+        var user = await _usersRepository.GetAsync(new UserSerchOptions { Id = id });
+
+        if (user is null)
+            throw new UserNotFound("");
+
+        if (user.IsVerified)
+            throw new UserAlreadyVerified();
+
+        var isVerified = await _verifyMailRepo.Verify(id, code);
+
+        if (isVerified is null)
+            throw new UserNotFound("");
+
+        if (isVerified == false)
+            throw new InvalidCode();
+
+        user.IsVerified = true;
+        string sessionId = _tokenRepository.setSession(user.Id);
+        var tokens = _jwtService.GenerateJwtTokens(user.Id, sessionId);
+        
+        user.Sessions = [new Session()
+        {
+            RefreshToken = tokens.refreshToken,
+            Name = sessionInfo.sessionName,
+            SessionType = sessionInfo.sessionType
+        }];
+
+        await _usersRepository.UpdateAsync(user.Id, user);
+
         return tokens;
     }
 
@@ -113,8 +174,13 @@ public class AuthService
         
         string sessionId = _tokenRepository.setSession(user.Id);
         var newTokens = _jwtService.GenerateJwtTokens(user.Id, sessionId);
-        user.Sessions.Append(new Session
-        { Name = session.name, SessionType = session.type, RefreshToken = newTokens.refreshToken });
+        
+        user.Sessions.Append(new Session { 
+            Name = session.name, 
+            SessionType = session.type, 
+            RefreshToken = newTokens.refreshToken 
+        });
+        
         await _usersRepository.UpdateAsync(user.Id, user);
         return newTokens;
     }

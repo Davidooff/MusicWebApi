@@ -75,6 +75,33 @@ public class UsersExceptionFilter : IExceptionFilter
 
             context.Result = new NotFoundObjectResult(problemDetails);
             context.ExceptionHandled = true;
+        } else if (context.Exception is UserAlreadyVerified)
+        {
+            _logger.LogWarning("UserAlreadyVerified");
+      
+            var problemDetails = new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "User Already Verified",
+                Detail = "Try to login"
+            };
+
+            context.Result = new ConflictObjectResult(problemDetails);
+            context.ExceptionHandled = true;
+        }
+        else if (context.Exception is InvalidCode)
+        {
+            _logger.LogWarning("UserAlreadyVerified");
+
+            var problemDetails = new ProblemDetails
+            {
+                Status = StatusCodes.Status406NotAcceptable,
+                Title = "User Already Verified",
+                Detail = "Try to login"
+            };
+
+            context.Result = new ObjectResult(problemDetails);
+            context.ExceptionHandled = true;
         }
         // Handle other exceptions (built-in or custom) here
         else if (!_env.IsDevelopment()) // Only show generic error in production

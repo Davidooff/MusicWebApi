@@ -26,7 +26,7 @@ builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection("Jwt"));
 
 builder.Services.Configure<RedisSettings>(
-    builder.Configuration.GetSection("TokenSettings"));
+    builder.Configuration.GetSection("RedisSettings"));
 
 builder.Services.AddAuthentication()
 .AddJwtBearer("some-scheme", jwtOptions =>

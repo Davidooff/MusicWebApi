@@ -1,7 +1,5 @@
-﻿using Microsoft.Extensions.Options;
-using NRedisStack.RedisStackCommands;
-using NRedisStack.Search.Literals.Enums;
-using NRedisStack.Search;
+﻿using StackExchange.Redis;
+using Microsoft.Extensions.Options;
 using MusicWebApi.src.Domain.Options;
 
 
@@ -9,26 +7,29 @@ namespace MusicWebApi.src.Infrastructure.Redis;
 
 public class TokenRepository : RedisRepositoryBase
 {
-    public TokenRepository(IOptions<RedisSettings> redisSettings)
-        : base(redisSettings)
-    {
-        //var schema = new Schema();
+    private readonly IDatabase _db;  
 
-        //bool _ = db.FT().Create(
-        //    "idx:users",
-        //    new FTCreateParams()
-        //        .On(IndexDataType.HASH)
-        //        .Prefix("user:"),
-        //    schema
-        //);
-        //Console.WriteLine(_.ToString());
+    protected TokenRepository(IOptions<RedisSettings> redisSettings)
+    {
+        if (redisSettings == null || redisSettings.Value == null)
+            throw new ArgumentNullException(nameof(redisSettings), "Redis settings cannot be null.");
+
+        ConfigurationOptions conf = new ConfigurationOptions
+        {
+            EndPoints = { redisSettings.Value.EndPoint },
+            DefaultDatabase = redisSettings.Value.TokenDbIndex,
+            User = redisSettings.Value.User,
+            Password = redisSettings.Value.Password
+        };
+
+        ConnectionMultiplexer redis = ConnectionMultiplexer.Connect(conf);
+        _db = redis.GetDatabase();
     }
 
     public string setSession(string id)
     {
         string sessionId = "user:" + CreateId(id);
-        db.StringSet(sessionId, id); 
-        db.KeyExpire(sessionId, new TimeSpan(0, 30, 0)); 
+        _db.StringSet(sessionId, id, new TimeSpan(0, 30, 0));
         return sessionId;
     }
 

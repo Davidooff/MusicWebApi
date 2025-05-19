@@ -13,17 +13,14 @@ public class PlayListController : ControllerBase
 {
     private readonly UserAlbumRepository _userAlbumRepository;
     private readonly PlatformsService _platformsService;
-    private readonly MusicRepository _musicRepository;
     private readonly MusicFileRepository _musicFileRepo;
 
     public PlayListController(UserAlbumRepository userAlbumRepository, 
         PlatformsService platformsService, 
-        MusicRepository musicRepository, 
         MusicFileRepository musicFileRepo)
     {
         _userAlbumRepository = userAlbumRepository;
         _platformsService = platformsService;
-        _musicRepository = musicRepository;
         _musicFileRepo = musicFileRepo;
     }
 
@@ -65,6 +62,7 @@ public class PlayListController : ControllerBase
             }
             return Results.NotFound();
         }
+
         return Results.Ok();
     }
 

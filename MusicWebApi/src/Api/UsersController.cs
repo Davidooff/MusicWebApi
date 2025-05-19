@@ -1,8 +1,11 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using MusicWebApi.src.Api.Dto;
 using MusicWebApi.src.Application.Services;
 using MusicWebApi.src.Domain.Entities;
+using MusicWebApi.src.Domain.Exceptions.Auth;
 using MusicWebApi.src.Infrastructure.Database;
 using MusicWebApi.src.Infrastructure.Redis;
 using UAParser;
@@ -39,12 +42,24 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost("new")]
-    public async Task<IResult> newUser(UserAuth newUser)
+    public async Task<IResult> NewUser(UserRegister newUser)
     {
+        string newToken = await _authService.Create(newUser);
+        Response.Cookies.Append("accessToken", newToken, accOptions);
+        return Results.Ok();
+    }
+
+    [Authorize]
+    [HttpPost("verify")]
+    public async Task<IResult> Verify(CodeVerify codeVerify)
+    {
+        var refreshToken = Request.Cookies["refreshToken"];
         var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
         var session = GetSessionInfo(userAgent);
-        var newTokens = await _authService.Create(newUser, session);
-        SetTokenCookies(newTokens);
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new InvalidToken();
+
+        var tokens = await _authService.Verify(userId, codeVerify.Code, session);
+        SetTokenCookies(tokens);
         return Results.Ok();
     }
 
