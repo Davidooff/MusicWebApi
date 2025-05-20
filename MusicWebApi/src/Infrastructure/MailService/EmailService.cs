@@ -8,6 +8,7 @@ namespace MusicWebApi.src.Infrastructure.MailService;
 public class EmailService
 {
     private readonly SmtpClient _smtpClient;
+    private readonly MailboxAddress _mailBoxAddress;
 
     public EmailService(IOptions<MailServiceSettings> mailServiceOptions)
     {
@@ -19,12 +20,13 @@ public class EmailService
         _smtpClient = new SmtpClient();
         _smtpClient.Connect(settings.Url, settings.Port, false);
         _smtpClient.Authenticate(settings.Username, settings.Password);
+        _mailBoxAddress = new MailboxAddress(mailServiceOptions.Value.DefaultFromName, mailServiceOptions.Value.DefaultFromAddress);
     }
 
     public void SendCode(int code, string to)
     {
         var message = new MimeMessage();
-        message.From.Add(new MailboxAddress("Joey Tribbiani", "joey@friends.com"));
+        message.From.Add(_mailBoxAddress);
         message.To.Add(new MailboxAddress("User", to));
         message.Subject = "Code";
 

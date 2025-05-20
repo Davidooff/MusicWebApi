@@ -8,4 +8,6 @@ public class JwtSettings
     public int accessTokenExpiration { get; set; } = 0;
     public int refreshTokenExpiration { get; set; } = 0;
 
+    public string AccessTokenStorage { get; set; } = string.Empty;
+    public string RefreshTokenStorage { get; set; } = string.Empty;
 }

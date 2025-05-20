@@ -69,9 +69,9 @@ public class AuthService
         try
         {
             short code = _verifyMailRepo.CreateCode();
-            var mail = _verifyMailRepo.Create(userId, userAuth.Email, code);
+            var mailId = _verifyMailRepo.Create(userId, code);
             _MailService.SendCode(code, userAuth.Email);
-            await mail;
+            await mailId;
             return _jwtService.GenerateToken(userId, 15);
         }
         catch (Exception e)

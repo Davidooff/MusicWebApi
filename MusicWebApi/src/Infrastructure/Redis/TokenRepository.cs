@@ -9,12 +9,12 @@ public class TokenRepository : RedisRepositoryBase
 {
     private readonly IDatabase _db;  
 
-    protected TokenRepository(IOptions<RedisSettings> redisSettings)
+    public TokenRepository(IOptions<RedisSettings> redisSettings)
     {
         if (redisSettings == null || redisSettings.Value == null)
             throw new ArgumentNullException(nameof(redisSettings), "Redis settings cannot be null.");
 
-        ConfigurationOptions conf = new ConfigurationOptions
+        var conf = new ConfigurationOptions
         {
             EndPoints = { redisSettings.Value.EndPoint },
             DefaultDatabase = redisSettings.Value.TokenDbIndex,

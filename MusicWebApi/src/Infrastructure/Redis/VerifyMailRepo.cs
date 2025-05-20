@@ -3,6 +3,7 @@ using Redis.OM.Searching;
 using Microsoft.Extensions.Options;
 using MusicWebApi.src.Domain.Options;
 using MusicWebApi.src.Domain.Entities;
+using StackExchange.Redis;
 
 namespace MusicWebApi.src.Infrastructure.Redisk;
 public class VerifyMailRepo
@@ -11,20 +12,22 @@ public class VerifyMailRepo
     private readonly RedisConnectionProvider _provider;
     private readonly IRedisCollection<VerifyUserRedis> _usersCollection;
     Random random = new Random();
+    private readonly string idPattern = @":([^:]+)$";
 
     public VerifyMailRepo(IOptions<RedisSettings> options)
     {
-        string connectionStringWithDb = options.Value.EndPoint + ",db=" + options.Value.VerifyUserDbIndex;
-        _provider = new RedisConnectionProvider(connectionStringWithDb) ?? throw new Exception("Unable to connect to db");
+        Console.WriteLine(options.Value.EndPoint);
+        ConfigurationOptions conf = new ConfigurationOptions
+        {
+            EndPoints = { options.Value.EndPoint },
+            DefaultDatabase = options.Value.VerifyUserDbIndex,
+            User = options.Value.User,
+            Password = options.Value.Password
+        };
+        _provider = new RedisConnectionProvider(conf);
+        _provider.Connection.CreateIndexAsync(typeof(VerifyUserRedis));
         _usersCollection = _provider.RedisCollection<VerifyUserRedis>();
-        InitializeAsync();
         _maxAttempts = options.Value.VerificationLimit;
-    }
-
-    // It's good practice to explicitly create indexes on startup
-    private async Task InitializeAsync()
-    {
-        await _provider.Connection.CreateIndexAsync(typeof(VerifyUserRedis));
     }
 
     public short CreateCode()
@@ -33,51 +36,45 @@ public class VerifyMailRepo
         return code;
     }
 
-    public async Task Create(string token, string userId, short code)
+    // returns the sessionId or null if not created
+    public async Task Create(string userId, short code)
     {
         var user = new VerifyUserRedis
         {
-            Token = token,
             UserId = userId,
             Code = code,
         };
         await _usersCollection.InsertAsync(user, TimeSpan.FromMinutes(15));
     }
-
-    public async Task<VerifyUserRedis?> Get(string sesionId)
-    {
-        var query = _usersCollection.Where(x => x.Id == sesionId);
-        var result = await query.FirstOrDefaultAsync();
-        return result;
-    }
-
+    
     /// <summary>
     /// Verifies the code for the given session ID. If sesion ID is not found, it returns null.
     /// </summary>
     /// <param name="sesionId"></param>
     /// <param name="code"></param>
     /// <returns></returns>
-    public async Task<bool?> Verify(string sesionId, short code)
+    public async Task<bool?> Verify(string userID, short code)
     {
-        var query = _usersCollection.Where(x => x.Id == sesionId);
-        var result = await query.FirstOrDefaultAsync();
+        var el = await _usersCollection.Where(x => x.UserId == userID).FirstOrDefaultAsync();
         
-        if (result is null)
+        Console.WriteLine(el.ToString());
+
+        if (el is null)
             return null;
 
-        if (result.Attempts >= _maxAttempts)
+        if (el.Attempts >= _maxAttempts)
         {
-            _usersCollection.DeleteAsync(result);
+            await _usersCollection.DeleteAsync(el);
             return null;
         }
 
-        if (result.Code == code)
+        if (el.Code == code)
         {
-            _usersCollection.DeleteAsync(result);
+            await _usersCollection.DeleteAsync(el);
             return true;
         }
-        result.Attempts++;
-        await _usersCollection.UpdateAsync(result);
+        el.Attempts++;
+        await _usersCollection.UpdateAsync(el);
         return false;
     }
 }
