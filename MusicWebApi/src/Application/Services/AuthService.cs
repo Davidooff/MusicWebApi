@@ -45,6 +45,14 @@ public class AuthService
         });
     }
 
+    private async Task<(string accToken, string refToken)> CreateTokensAndAssignSession(string userId)
+    {
+        var refreshToken = _jwtService.genRefToken(userId);
+        string sessionId = await _tokenRepository.setSession(userId, refreshToken);
+        var accessToken = _jwtService.genAccToken(sessionId);
+        return (accessToken, refreshToken);
+    }
+
     /// <summary>
     /// Creating user (Email verification req).
     /// </summary>
@@ -98,11 +106,10 @@ public class AuthService
 
         var userId = ObjectId.GenerateNewId().ToString();
 
-        string sessionId = _tokenRepository.setSession(userId);
-        var tokens = _jwtService.GenerateJwtTokens(userId, sessionId);
+        var tokens = await CreateTokensAndAssignSession(userId);
         Session session = new Session()
         {
-            RefreshToken = tokens.refreshToken,
+            RefreshToken = tokens.refToken,
             Name = sessionInfo.sessionName,
             SessionType = sessionInfo.sessionType
         };
@@ -131,12 +138,12 @@ public class AuthService
             throw new InvalidCode();
 
         user.IsVerified = true;
-        string sessionId = _tokenRepository.setSession(user.Id);
-        var tokens = _jwtService.GenerateJwtTokens(user.Id, sessionId);
-        
+
+        var tokens = await CreateTokensAndAssignSession(user.Id);
+
         user.Sessions = [new Session()
         {
-            RefreshToken = tokens.refreshToken,
+            RefreshToken = tokens.refToken,
             Name = sessionInfo.sessionName,
             SessionType = sessionInfo.sessionType
         }];
@@ -172,17 +179,30 @@ public class AuthService
         if (verificationResult == PasswordVerificationResult.SuccessRehashNeeded)
             user.Password = _pwHasher.HashPassword(userAuth, userAuth.Password);
         
-        string sessionId = _tokenRepository.setSession(user.Id);
-        var newTokens = _jwtService.GenerateJwtTokens(user.Id, sessionId);
-        
+        var newTokens = await CreateTokensAndAssignSession(user.Id);
+
         user.Sessions.Append(new Session { 
             Name = session.name, 
             SessionType = session.type, 
-            RefreshToken = newTokens.refreshToken 
+            RefreshToken = newTokens.refToken 
         });
         
         await _usersRepository.UpdateAsync(user.Id, user);
         return newTokens;
+    }
+
+    public async Task Logout(string accToken)
+    {
+        string sessionId = _jwtService.GetIdFromToken(accToken); // if id is null, exception will be throw
+        var userData = await _tokenRepository.getUserById(sessionId);
+
+        if (sessionId is null)
+            throw new InvalidToken(accToken);
+
+        if (!await _usersRepository.RemoveToken(userData.UserId, userData.RefToken))
+            throw new InvalidToken(accToken);
+
+        _tokenRepository.delletSession(sessionId);
     }
 
     /// <summary>
@@ -198,12 +218,12 @@ public class AuthService
     public async Task<(string accessToken, string refreshToken)> 
         RefreshToken(string refreshToken)
     {
+        await _tokenRepository.delleteByRefToken(refreshToken);
         string userId = _jwtService.GetIdFromToken(refreshToken); // if id is null, exception will be throw
 
-        string newSessionId = _tokenRepository.setSession(userId);
-        var newTokens = _jwtService.GenerateJwtTokens(userId, newSessionId);
+        var newTokens = await CreateTokensAndAssignSession(userId);
 
-        bool done = await _usersRepository.RefreshToken(userId, newTokens.refreshToken);
+        bool done = await _usersRepository.RefreshToken(userId, refreshToken, newTokens.refToken);
 
         if (done is false)
             throw new ExpiredToken(refreshToken);

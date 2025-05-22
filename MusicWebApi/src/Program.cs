@@ -13,6 +13,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -28,8 +30,11 @@ builder.Services.Configure<DatabaseSettings>(
 builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection("Jwt"));
 
-builder.Services.Configure<RedisSettings>(
-    builder.Configuration.GetSection("RedisSettings"));
+builder.Services.Configure<TokenRepoSettings>(
+    builder.Configuration.GetSection("TokenRepoSettings"));
+
+builder.Services.Configure<VerifyRepoSettings>(
+    builder.Configuration.GetSection("VarifyRepoSettings"));
 
 builder.Services.Configure<MailServiceSettings>(
     builder.Configuration.GetSection("MailServiceSettings"));

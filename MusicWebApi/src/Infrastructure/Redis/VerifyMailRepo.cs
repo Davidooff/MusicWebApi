@@ -12,15 +12,12 @@ public class VerifyMailRepo
     private readonly RedisConnectionProvider _provider;
     private readonly IRedisCollection<VerifyUserRedis> _usersCollection;
     Random random = new Random();
-    private readonly string idPattern = @":([^:]+)$";
 
-    public VerifyMailRepo(IOptions<RedisSettings> options)
+    public VerifyMailRepo(IOptions<VerifyRepoSettings> options)
     {
-        Console.WriteLine(options.Value.EndPoint);
         ConfigurationOptions conf = new ConfigurationOptions
         {
             EndPoints = { options.Value.EndPoint },
-            DefaultDatabase = options.Value.VerifyUserDbIndex,
             User = options.Value.User,
             Password = options.Value.Password
         };

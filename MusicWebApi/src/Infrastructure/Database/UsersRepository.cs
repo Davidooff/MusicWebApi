@@ -55,10 +55,18 @@ public class UsersRepository
             x => x.Id == id,
             Builders<UserDB>.Update.Push(x => x.Sessions, session));
 
-    public async Task<bool> RefreshToken(string id, string token)
+    public async Task<bool> RemoveToken(string id, string token)
     {
         var action = await _usersCollection.UpdateOneAsync(
             x => x.Id == id && x.Sessions.Any(s => s.RefreshToken == token),
+            Builders<UserDB>.Update.PullFilter(x => x.Sessions, s => s.RefreshToken == token));
+        return action.IsAcknowledged && action.ModifiedCount != 0;
+    }
+
+    public async Task<bool> RefreshToken(string id, string oldToken,string token)
+    {
+        var action = await _usersCollection.UpdateOneAsync(
+            x => x.Id == id && x.Sessions.Any(s => s.RefreshToken == oldToken),
             Builders<UserDB>.Update.Set("sessions.$.RefreshToken", token));
 
         return action.IsAcknowledged;

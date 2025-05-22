@@ -13,7 +13,7 @@ using UAParser;
 namespace MusicWebApi.src.Api;
 
 [ApiController]
-[Route("users")]
+[Route("auth")]
 [ServiceFilter(typeof(UsersExceptionFilter))]
 public class UsersController : ControllerBase
 {
@@ -57,8 +57,8 @@ public class UsersController : ControllerBase
     }
 
 
-    [HttpPost("new")]
-    public async Task<IResult> NewUser(UserRegister newUser)
+    [HttpPost("create")]
+    public async Task<IResult> Creaete(UserRegister newUser)
     {
         string newToken = await _authService.Create(newUser);
         Response.Cookies.Append(accessTokenPath, newToken, verOptions);
@@ -81,8 +81,8 @@ public class UsersController : ControllerBase
         return Results.Ok();
     }
 
-    [HttpPost("auth")]
-    public async Task<IResult> Auth(UserAuth user)
+    [HttpPost("login")]
+    public async Task<IResult> Login(UserAuth user)
     {
         var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
         var session = GetSessionInfo(userAgent);
@@ -100,6 +100,19 @@ public class UsersController : ControllerBase
 
         var tokens = await _authService.RefreshToken(refreshToken);
         SetTokenCookies(tokens);
+        return Results.Ok();
+    }
+
+    [HttpPost("logout")]
+    public async Task<IResult> Logout()
+    {
+        var accToken = Request.Cookies[accessTokenPath];
+        if (string.IsNullOrEmpty(accToken))
+            return Results.Unauthorized();
+
+        await _authService.Logout(accToken);
+        Response.Cookies.Delete(accessTokenPath);
+        Response.Cookies.Delete(refreshTokenPath);
         return Results.Ok();
     }
 

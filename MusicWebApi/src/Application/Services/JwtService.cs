@@ -28,6 +28,12 @@ public class JwtService
             GenerateToken(userId, _jwtSettings.refreshTokenExpiration));
     }
 
+    public string genAccToken(string sessionId) =>
+        GenerateToken(sessionId, _jwtSettings.accessTokenExpiration);
+
+    public string genRefToken(string userId) =>
+        GenerateToken(userId, _jwtSettings.refreshTokenExpiration);
+
     public string GenerateToken(string userId, int expirationMinutes)
     {
         var tokenDescriptor = new SecurityTokenDescriptor
