@@ -11,7 +11,7 @@ public class VerifyMailRepo
     private readonly short _maxAttempts;
     private readonly RedisConnectionProvider _provider;
     private readonly IRedisCollection<VerifyUserRedis> _usersCollection;
-    Random random = new Random();
+    private readonly Random _random = new Random();
 
     public VerifyMailRepo(IOptions<VerifyRepoSettings> options)
     {
@@ -29,13 +29,17 @@ public class VerifyMailRepo
 
     public short CreateCode()
     {         // Generate a random 4-digit code
-        short code = (short)random.Next(1000, 9999);
+        short code = (short)_random.Next(1000, 9999);
         return code;
     }
 
     // returns the sessionId or null if not created
     public async Task Create(string userId, short code)
     {
+        var el = await _usersCollection.Where(x => x.UserId == userId).FirstOrDefaultAsync();
+        if (el is not null)
+            await _usersCollection.DeleteAsync(el);
+
         var user = new VerifyUserRedis
         {
             UserId = userId,
@@ -73,6 +77,15 @@ public class VerifyMailRepo
         el.Attempts++;
         await _usersCollection.UpdateAsync(el);
         return false;
+    }
+
+    public async Task<bool> RemoveByUserId(string userId)
+    {
+        var el = await _usersCollection.Where(x => x.UserId == userId).FirstOrDefaultAsync();
+        if (el is null)
+            return false;
+        await _usersCollection.DeleteAsync(el);
+        return true;
     }
 }
 

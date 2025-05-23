@@ -9,7 +9,7 @@ using Redis.OM.Searching;
 
 namespace MusicWebApi.src.Infrastructure.Redis;
 
-public class TokenRepository : RedisRepositoryBase
+public class TokenRepository
 {
     private readonly RedisConnectionProvider _provider;
     private readonly IRedisCollection<UserRedis> _usersCollection;

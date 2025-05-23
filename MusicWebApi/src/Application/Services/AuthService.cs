@@ -45,12 +45,36 @@ public class AuthService
         });
     }
 
-    private async Task<(string accToken, string refToken)> CreateTokensAndAssignSession(string userId)
+    private async Task<(string accToken, string refToken)> CreateTokensAndAssignSessionToRedis(string userId)
     {
         var refreshToken = _jwtService.genRefToken(userId);
         string sessionId = await _tokenRepository.setSession(userId, refreshToken);
         var accessToken = _jwtService.genAccToken(sessionId);
         return (accessToken, refreshToken);
+    }
+
+    /// <summary>
+    /// Creating user verification tokens and creating El in redis for email verification
+    /// </summary>
+    /// <param name="userId"></param>
+    /// <param name="email"></param>
+    /// <returns></returns>
+    /// <exception cref="Exception"></exception>
+    private async Task<string?> CreateUserVerificationTokens(string userId, string email)
+    {
+        try
+        {
+            short code = _verifyMailRepo.CreateCode();
+            var mailId = _verifyMailRepo.Create(userId, code);
+            _MailService.SendCode(code, email);
+            await mailId;
+            return _jwtService.GenerateToken(userId, 15);
+        }
+        catch (Exception e)
+        {
+            _verifyMailRepo.RemoveByUserId(userId);
+            throw new Exception("Unable to create user", e);
+        }
     }
 
     /// <summary>
@@ -74,19 +98,15 @@ public class AuthService
         var userId = ObjectId.GenerateNewId().ToString();
 
         await CreateUser(userAuth, userId, null);
-        try
-        {
-            short code = _verifyMailRepo.CreateCode();
-            var mailId = _verifyMailRepo.Create(userId, code);
-            _MailService.SendCode(code, userAuth.Email);
-            await mailId;
-            return _jwtService.GenerateToken(userId, 15);
-        }
-        catch (Exception e)
+        var token = await CreateUserVerificationTokens(userId, userAuth.Email);
+
+        if (String.IsNullOrEmpty(token))
         {
             await _usersRepository.RemoveAsync(userId);
-            throw new Exception("Unable to create user", e);
+            throw new Exception("Unable to create user");
         }
+
+        return token;
     }
 
     /// <summary>
@@ -106,7 +126,7 @@ public class AuthService
 
         var userId = ObjectId.GenerateNewId().ToString();
 
-        var tokens = await CreateTokensAndAssignSession(userId);
+        var tokens = await CreateTokensAndAssignSessionToRedis(userId);
         Session session = new Session()
         {
             RefreshToken = tokens.refToken,
@@ -139,7 +159,7 @@ public class AuthService
 
         user.IsVerified = true;
 
-        var tokens = await CreateTokensAndAssignSession(user.Id);
+        var tokens = await CreateTokensAndAssignSessionToRedis(user.Id);
 
         user.Sessions = [new Session()
         {
@@ -154,7 +174,7 @@ public class AuthService
     }
 
     /// <summary>
-    /// Create tokens
+    /// Create tokens (if user is not verified it's return only access token for verification)
     /// </summary>
     /// <param name="userAuth">The amount to charge.</param>
     /// <exception cref="UserNotFound">
@@ -163,7 +183,7 @@ public class AuthService
     /// <exception cref="WrongPassword">
     /// Wrong password
     /// </exception>
-    public async Task<(string accessToken, string refreshToken)>
+    public async Task<(string accessToken, string? refreshToken)>
     Auth(UserAuth userAuth, (string name, ESessionType type) session)
     {
         UserDB? user = await _usersRepository.GetAsync(new UserSerchOptions { Email = userAuth.Email });
@@ -178,17 +198,28 @@ public class AuthService
 
         if (verificationResult == PasswordVerificationResult.SuccessRehashNeeded)
             user.Password = _pwHasher.HashPassword(userAuth, userAuth.Password);
-        
-        var newTokens = await CreateTokensAndAssignSession(user.Id);
 
-        user.Sessions.Append(new Session { 
-            Name = session.name, 
-            SessionType = session.type, 
-            RefreshToken = newTokens.refToken 
-        });
+        if (user.IsVerified)
+        {
+            var newTokens = await CreateTokensAndAssignSessionToRedis(user.Id);
+
+            user.Sessions.Append(new Session { 
+                Name = session.name, 
+                SessionType = session.type, 
+                RefreshToken = newTokens.refToken 
+            });
         
-        await _usersRepository.UpdateAsync(user.Id, user);
-        return newTokens;
+            await _usersRepository.UpdateAsync(user.Id, user);
+            return newTokens;
+        } else
+        {
+            var accessToken = await CreateUserVerificationTokens(user.Id, user.Email);
+
+            if (String.IsNullOrEmpty(accessToken))
+                throw new Exception("Unable to auth user");
+            
+            return (accessToken, null);
+        }
     }
 
     public async Task Logout(string accToken)
@@ -221,7 +252,7 @@ public class AuthService
         await _tokenRepository.delleteByRefToken(refreshToken);
         string userId = _jwtService.GetIdFromToken(refreshToken); // if id is null, exception will be throw
 
-        var newTokens = await CreateTokensAndAssignSession(userId);
+        var newTokens = await CreateTokensAndAssignSessionToRedis(userId);
 
         bool done = await _usersRepository.RefreshToken(userId, refreshToken, newTokens.refToken);
 

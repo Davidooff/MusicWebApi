@@ -71,10 +71,7 @@ public class UsersController : ControllerBase
     {
         var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
         var session = GetSessionInfo(userAgent);
-        Console.WriteLine(userAgent);
-        Console.WriteLine(User.ToString());
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new InvalidToken();
-        Console.WriteLine(User);
 
         var tokens = await _authService.Verify(userId, codeVerify.Code, session);
         SetTokenCookies(tokens);
@@ -87,7 +84,11 @@ public class UsersController : ControllerBase
         var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
         var session = GetSessionInfo(userAgent);
         var newTokens = await _authService.Auth(user, session);
-        SetTokenCookies(newTokens);
+        if (newTokens.refreshToken is null)
+            Response.Cookies.Append(accessTokenPath, newTokens.accessToken, verOptions);
+        else
+            SetTokenCookies((newTokens.accessToken, newTokens.refreshToken)); 
+
         return Results.Ok();
     }
 
