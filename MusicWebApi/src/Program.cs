@@ -30,6 +30,9 @@ builder.Services.Configure<DatabaseSettings>(
 builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection("Jwt"));
 
+builder.Services.Configure<UserRedisRepoSettings>(
+    builder.Configuration.GetSection("UserRedisRepoSettings"));
+
 builder.Services.Configure<TokenRepoSettings>(
     builder.Configuration.GetSection("TokenRepoSettings"));
 
@@ -84,6 +87,7 @@ builder.Services.AddAuthentication(options =>
 });
 
 //redis
+builder.Services.AddSingleton<UserRedisRepository>();
 builder.Services.AddSingleton<TokenRepository>();
 builder.Services.AddSingleton<VerifyMailRepo>();
 //mongo

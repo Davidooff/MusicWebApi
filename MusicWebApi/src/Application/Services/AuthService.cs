@@ -48,7 +48,7 @@ public class AuthService
     private async Task<(string accToken, string refToken)> CreateTokensAndAssignSessionToRedis(string userId)
     {
         var refreshToken = _jwtService.genRefToken(userId);
-        string sessionId = await _tokenRepository.setSession(userId, refreshToken);
+        string sessionId = await _tokenRepository.CreateNewSession(userId, refreshToken);
         var accessToken = _jwtService.genAccToken(sessionId);
         return (accessToken, refreshToken);
     }
@@ -225,15 +225,9 @@ public class AuthService
     public async Task Logout(string accToken)
     {
         string sessionId = _jwtService.GetIdFromToken(accToken); // if id is null, exception will be throw
-        var userData = await _tokenRepository.getUserById(sessionId);
 
-        if (sessionId is null)
+        if (!await _tokenRepository.RemoveSession(sessionId))
             throw new InvalidToken(accToken);
-
-        if (!await _usersRepository.RemoveToken(userData.UserId, userData.RefToken))
-            throw new InvalidToken(accToken);
-
-        _tokenRepository.delletSession(sessionId);
     }
 
     /// <summary>
@@ -249,7 +243,7 @@ public class AuthService
     public async Task<(string accessToken, string refreshToken)> 
         RefreshToken(string refreshToken)
     {
-        await _tokenRepository.delleteByRefToken(refreshToken);
+        await _tokenRepository.removeSessionByRefreshToken(refreshToken);
         string userId = _jwtService.GetIdFromToken(refreshToken); // if id is null, exception will be throw
 
         var newTokens = await CreateTokensAndAssignSessionToRedis(userId);

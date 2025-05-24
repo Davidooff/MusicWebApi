@@ -1,122 +1,170 @@
-﻿using StackExchange.Redis;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using MusicWebApi.src.Domain.Options;
-using System.Text.RegularExpressions;
+using NRedisStack.Search.Literals.Enums;
+using NRedisStack.Search;
+using StackExchange.Redis;
+using NRedisStack.RedisStackCommands;
+using System.Text;
 using MusicWebApi.src.Domain.Entities;
-using Redis.OM;
-using Redis.OM.Searching;
-
+using System.Security.Cryptography;
+using System.Text.RegularExpressions;
+using MusicWebApi.src.Infrastructure.Database;
 
 namespace MusicWebApi.src.Infrastructure.Redis;
-
 public class TokenRepository
 {
-    private readonly RedisConnectionProvider _provider;
-    private readonly IRedisCollection<UserRedis> _usersCollection;
+    private readonly IDatabase _db;
+    private readonly UserRedisRepository _userRepository;
     private readonly ILogger _logger;
-    
+    private readonly static Regex regex = new Regex(@";([^;]+)");
 
-    public TokenRepository(IOptions<TokenRepoSettings> options, ILogger<TokenRepository> logger)
+    public TokenRepository(IOptions<TokenRepoSettings> options, ILogger<TokenRepository> logger, UserRedisRepository userRepository)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger), "Logger cannot be null.");
+        _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository), "UserRepository cannot be null.");
 
         ConfigurationOptions conf = new ConfigurationOptions
         {
-            EndPoints = { options.Value.EndPoint },
+            EndPoints = {options.Value.EndPoint},
             User = options.Value.User,
-            Password = options.Value.Password
+            Password = options.Value.Password,
         };
-        _provider = new RedisConnectionProvider(conf);
-        _provider.Connection.CreateIndexAsync(typeof(UserRedis));
-        _usersCollection = _provider.RedisCollection<UserRedis>();
+
+        ConnectionMultiplexer muxer = ConnectionMultiplexer.Connect(conf);
+        _db = muxer.GetDatabase();
+
+        var hashSchema = new Schema()
+            .AddTextField("userId")
+            .AddTextField("sessionId")
+            .AddTextField("ref");
+
+
+        bool hashIndexCreated = _db.FT().Create(
+            "hash-idx:tokens",
+            new FTCreateParams()
+                .On(IndexDataType.HASH)
+                .Prefix("htokens:"),
+            hashSchema
+        );
     }
 
-    public async Task<string> setSession(string userId, string refreshToken)
+    /// <summary>
+    /// Generates a deterministic, unique string ID from an input string using SHA256.
+    /// The same input string will always produce the same ID.
+    /// </summary>
+    /// <param name="inputString">The string to generate an ID for.</param>
+    /// <returns>A 64-character hexadecimal string representing the SHA256 hash, or null if input is null.</returns>
+    private static string GenerateDeterministicId(string inputString)
     {
-        var user = new UserRedis
+        // Use SHA256 for hashing
+        using (SHA256 sha256Hash = SHA256.Create())
+        {
+            // Convert the input string to a byte array and compute the hash.
+            // UTF-8 is a common and recommended encoding.
+            byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(inputString));
+
+            // Convert byte array to a hexadecimal string
+            StringBuilder builder = new StringBuilder();
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                builder.Append(bytes[i].ToString("x2")); // "x2" formats as a two-character lowercase hex string
+            }
+            return builder.ToString();
+        }
+    }
+
+    private async Task<string> setSession(string userId, string refreshToken)
+    {
+        var sessionId = GenerateDeterministicId(refreshToken);
+
+        await _db.HashSetAsync($"htokens:{sessionId};{userId}" , new HashEntry[]
+        {
+            new("userId", userId),
+            new("sessionId", sessionId),
+            new("ref", refreshToken)
+        });
+        await _db.KeyExpireAsync("htokens:" + sessionId, TimeSpan.FromMinutes(60));
+        return sessionId;
+    }
+
+    private async Task<string?> getUserIdBySeesion(string sessionId)
+    {
+        var el = await _db.FT().SearchAsync("hash-idx:tokens", new Query($"@sessionId:{sessionId}"));
+
+        if (el.TotalResults == 0)
+            return null;
+
+        Console.WriteLine($"Found {el.TotalResults} results for sessionId: {sessionId}. Key: {el.Documents[0].Id}");
+        Match match = regex.Match(el.Documents[0].Id);
+
+        return match.Groups[1].Value;
+    }
+
+    public async Task<bool> RemoveSession(string sessionId)
+    {
+        var el = await _db.FT().SearchAsync("hash-idx:tokens", new Query($"@sessionId:{sessionId}"));
+
+        if (el.TotalResults == 0)
+            return false;
+
+        await _db.KeyDeleteAsync(el.Documents[0].Id);
+        return true;
+    }
+
+    public async Task<bool> RemoveSessionByToken(string refreshToken)
+    {
+        var el = await _db.FT().SearchAsync("hash-idx:tokens", new Query($"@ref:{refreshToken}"));
+
+        if (el.TotalResults == 0)
+            return false;
+
+        await _db.KeyDeleteAsync(el.Documents[0].Id);
+        return true;
+    }
+
+
+    private async Task<TokenRedis?> GetElBySeessionId(string sessionId)
+    {
+        var el = await _db.HashGetAllAsync("htokens:" + sessionId);
+        if (el.Length == 0)
+            return null;
+
+        string userId = el.FirstOrDefault(x => x.Name == "userId").Value!;
+        string refreshToken = el.FirstOrDefault(x => x.Name == "ref").Value!;
+
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(refreshToken))
+            return null;
+
+        return new TokenRedis
         {
             UserId = userId,
-            RefToken = refreshToken,
+            RefreshToken = refreshToken
         };
-
-        var key = await _usersCollection.InsertAsync(user, TimeSpan.FromMinutes(15));
-
-        return key;
     }
 
-    public async Task delletSession(string key) =>
-        await _provider.Connection.UnlinkAsync(key);
-
-    public async Task<UserRedis?> getUserById(string key) => 
-        await _usersCollection.FindByIdAsync(key);        
-    
-    public async Task delleteByRefToken(string token)
+    public async Task<bool> removeSessionByRefreshToken(string token)
     {
-        var user = await _usersCollection.Where(x => x.RefToken == token).FirstOrDefaultAsync();
-        if (user is null)
-        {
-            _logger.LogError("Session not found: {token}", token);
-            throw new Exception("Session not found");
-        }
-        await _usersCollection.DeleteAsync(user);
+        var el = await _db.FT().SearchAsync(
+            "hash-idx:tokens",
+            new Query($"@ref:{token}")
+        );
+
+        if (el.TotalResults == 0)
+            return false;
+
+        // Extract the key from search results
+        var key = el.Documents[0].Id;
+
+        // Delete the key
+        await _db.KeyDeleteAsync(key);
+
+        return true;
+    }
+
+    public async Task<string> CreateNewSession(string userId, string refreshToken)
+    {
+        await _userRepository.CreateOrExtendTtl(userId);
+        return await setSession(userId, refreshToken);
     }
 }
 
-
-
-//public class TokenRepository : RedisRepositoryBase
-//{
-//    private readonly IDatabase _db;
-//    private readonly ILogger _logger;
-//    private const string pattern = @"^(.*?);(.*?)$";
-
-//    public TokenRepository(IOptions<TokenRepoSettings> redisSettings, ILogger logger)
-//    {
-//        _logger = logger ?? throw new ArgumentNullException(nameof(logger), "Logger cannot be null.");
-
-//        if (redisSettings == null || redisSettings.Value == null)
-//            throw new ArgumentNullException(nameof(redisSettings), "Redis settings cannot be null.");
-
-//        var conf = new ConfigurationOptions
-//        {
-//            EndPoints = { redisSettings.Value.EndPoint },
-//            User = redisSettings.Value.User,
-//            Password = redisSettings.Value.Password
-//        };
-
-//        ConnectionMultiplexer redis = ConnectionMultiplexer.Connect(conf);
-//        _db = redis.GetDatabase();
-//    }
-
-//    public string setSession(string id, string refreshToken)
-//    {
-//        string sessionId = "user:" + CreateId(id);
-//        _db.StringSet(sessionId, id + ";" + refreshToken, new TimeSpan(0, 30, 0));
-//        return sessionId;
-//    }
-
-//    public bool delletSession(string sessionId) =>
-//        db.KeyDelete(sessionId);
-
-//    public (string userId, string refToken) getUserInfoBySessionId(string sessionId)
-//    {
-//        string? dbInfo = db.StringGet(sessionId);
-
-//        if (dbInfo == null)
-//        {
-//            _logger.LogError("Session not found: {sessionId}", sessionId);
-//            throw new Exception("Session not found");
-//        }
-
-//        Match match = Regex.Match(dbInfo, pattern);
-
-//        if (match.Success && match.Groups.Count == 2)
-//            return (match.Groups[1].Value, match.Groups[2].Value);
-//        else
-//        {
-//            _logger.LogError("By session id: {sessionId}. Failed to parse session data: {sessionData}", sessionId, dbInfo);
-//            throw new Exception("Failed to parse session data");
-//        }
-
-//    }
-//}
