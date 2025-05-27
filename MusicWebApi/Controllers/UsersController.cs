@@ -66,12 +66,11 @@ public class UsersController : ControllerBase
     }
 
     [Authorize]
-    [HttpPost("verify-email")]
+    [HttpPost("verify")]
     public async Task<IResult> Verify(CodeVerify codeVerify)
     {
         var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
         var session = GetSessionInfo(userAgent);
-        Console.WriteLine($"Code: {codeVerify.Code}, Session: {JsonSerializer.Serialize(session)}");
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new InvalidToken();
 
         var tokens = await _authService.Verify(userId, codeVerify.Code, session);
