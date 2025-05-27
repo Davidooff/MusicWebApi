@@ -63,7 +63,7 @@ public class AuthService
     {
         try
         {
-            short code = _verifyMailRepo.CreateCode();
+            int code = _verifyMailRepo.CreateCode();
             var mailId = _verifyMailRepo.Create(userId, code);
             _MailService.SendCode(code, email);
             await mailId;

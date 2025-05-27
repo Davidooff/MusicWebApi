@@ -32,7 +32,7 @@ public class VerifyMailRepo
      
 
     // returns the sessionId or null if not created
-    public async Task Create(string userId, short code)
+    public async Task Create(string userId, int code)
     {
         var el = await _usersCollection.Where(x => x.UserId == userId).FirstOrDefaultAsync();
         if (el is not null)
