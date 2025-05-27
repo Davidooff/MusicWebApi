@@ -27,14 +27,12 @@ public class VerifyMailRepo
         _maxAttempts = options.Value.VerificationLimit;
     }
 
-    public short CreateCode()
-    {         // Generate a random 4-digit code
-        short code = (short)_random.Next(1000, 9999);
-        return code;
-    }
+    public int CreateCode() 
+        => _random.Next(100000, 999999);
+     
 
     // returns the sessionId or null if not created
-    public async Task Create(string userId, short code)
+    public async Task Create(string userId, int code)
     {
         var el = await _usersCollection.Where(x => x.UserId == userId).FirstOrDefaultAsync();
         if (el is not null)
@@ -54,7 +52,7 @@ public class VerifyMailRepo
     /// <param name="sesionId"></param>
     /// <param name="code"></param>
     /// <returns></returns>
-    public async Task<bool?> Verify(string userID, short code)
+    public async Task<bool?> Verify(string userID, int code)
     {
         var el = await _usersCollection.Where(x => x.UserId == userID).FirstOrDefaultAsync();
         

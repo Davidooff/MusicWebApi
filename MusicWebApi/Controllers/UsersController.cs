@@ -33,7 +33,7 @@ public class UsersController : ControllerBase
         Secure = true,
         SameSite = SameSiteMode.Strict,
         MaxAge = TimeSpan.FromMinutes(60), 
-        Path = "/users/updateToken" 
+        Path = "/api/auth/updateToken"
     };
 
     private readonly CookieOptions verOptions = new CookieOptions
@@ -42,7 +42,7 @@ public class UsersController : ControllerBase
         Secure = true,
         SameSite = SameSiteMode.Strict,
         MaxAge = TimeSpan.FromMinutes(15),
-        Path = "/users/verify"
+        Path = "/api/auth/verify-email"
     };
 
     private readonly string accessTokenPath;
@@ -57,8 +57,8 @@ public class UsersController : ControllerBase
     }
 
 
-    [HttpPost("create")]
-    public async Task<IResult> Creaete(UserRegister newUser)
+    [HttpPost("register")]
+    public async Task<IResult> Register(UserRegister newUser)
     {
         string newToken = await _authService.Create(newUser);
         Response.Cookies.Append(accessTokenPath, newToken, verOptions);

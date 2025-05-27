@@ -12,7 +12,7 @@ public class VerifyUserRedis
 
     [Indexed] public string UserId { get; set; } = null!;
 
-    public short Code { get; set; }
+    public int Code { get; set; }
 
     public short Attempts { get; set; } = 0;
 }

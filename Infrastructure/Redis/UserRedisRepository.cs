@@ -32,6 +32,7 @@ public class UserRedisRepository
         var hashSchema = new Schema()
             .AddNumericField("timesListned");
 
+        _usersDb.FT().DropIndex("hash-idx:users");
         bool hashIndexCreated = _usersDb.FT().Create(
             "hash-idx:users",
             new FTCreateParams()
