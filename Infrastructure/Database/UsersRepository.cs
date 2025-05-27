@@ -70,5 +70,11 @@ public class UsersRepository
 
         return action.IsAcknowledged;
     }
+
+    public async Task<bool> DeleteUser(string id)
+    {
+        var action = await _usersCollection.DeleteOneAsync(x => x.Id == id);
+        return action.IsAcknowledged && action.DeletedCount > 0;
+    }
 }
 
