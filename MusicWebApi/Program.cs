@@ -47,6 +47,7 @@ builder.Services.Configure<MailServiceSettings>(
 
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()
                   ?? throw new InvalidOperationException("JwtSettings not configured.");
+
 var key = Encoding.ASCII.GetBytes(jwtSettings.Secret);
 
 builder.Services.AddAuthentication(options =>
@@ -74,12 +75,24 @@ builder.Services.AddAuthentication(options =>
     {
         OnMessageReceived = context =>
         {
-            context.Token = context.Request.Cookies[jwtSettings.AccessTokenStorage];
+            var token = context.Request.Cookies[jwtSettings.AccessTokenStorage];
+            context.Token = token;
+            Console.WriteLine($"Token from cookie: {token}");
+            // Add cookie debug info
+            Console.WriteLine("All cookies:");
+            foreach (var cookie in context.Request.Cookies)
+            {
+                Console.WriteLine($"Cookie: {cookie.Key} = {cookie.Value}");
+            }
             return Task.CompletedTask;
         },
-        // Optional: Handle authentication failure (e.g., token expired but not yet refreshed)
         OnAuthenticationFailed = context =>
         {
+            var failureMessage = context.Exception.Message;
+            var innerMessage = context.Exception.InnerException?.Message;
+            Console.WriteLine($"Auth failed: {failureMessage}");
+            Console.WriteLine($"Inner exception: {innerMessage}");
+
             if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
             {
                 context.Response.Headers.Append("Token-Expired", "true");
