@@ -2,6 +2,6 @@
 {
     public class CodeVerify
     {
-        public short Code { get; set; }
+        public int Code { get; set; }
     }
 }

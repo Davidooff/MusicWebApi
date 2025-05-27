@@ -28,8 +28,8 @@ public class VerifyMailRepo
     }
 
     public short CreateCode()
-    {         // Generate a random 4-digit code
-        short code = (short)_random.Next(1000, 9999);
+    {         // Generate a random 6-digit code
+        short code = (short)_random.Next(100000, 999999);
         return code;
     }
 
@@ -54,7 +54,7 @@ public class VerifyMailRepo
     /// <param name="sesionId"></param>
     /// <param name="code"></param>
     /// <returns></returns>
-    public async Task<bool?> Verify(string userID, short code)
+    public async Task<bool?> Verify(string userID, int code)
     {
         var el = await _usersCollection.Where(x => x.UserId == userID).FirstOrDefaultAsync();
         

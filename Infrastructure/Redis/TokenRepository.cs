@@ -41,6 +41,7 @@ public class TokenRepository
             .AddTextField("ref");
 
 
+        _db.FT().DropIndex("hash-idx:tokens");
         bool hashIndexCreated = _db.FT().Create(
             "hash-idx:tokens",
             new FTCreateParams()

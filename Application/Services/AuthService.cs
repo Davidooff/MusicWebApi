@@ -138,7 +138,7 @@ public class AuthService
     }
 
     public async Task<(string accessToken, string refreshToken)> 
-        Verify(string id, short code,(string sessionName, ESessionType sessionType) sessionInfo)
+        Verify(string id, int code,(string sessionName, ESessionType sessionType) sessionInfo)
     {
         var user = await _usersRepository.GetAsync(new UserSerchOptions { Id = id });
 
