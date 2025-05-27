@@ -24,7 +24,6 @@ public class UsersController : ControllerBase
         HttpOnly = true,
         Secure = true,
         SameSite = SameSiteMode.Strict,
-        MaxAge = TimeSpan.FromMinutes(15), 
     };
 
     private readonly CookieOptions refOptions = new CookieOptions
@@ -32,7 +31,6 @@ public class UsersController : ControllerBase
         HttpOnly = true,
         Secure = true,
         SameSite = SameSiteMode.Strict,
-        MaxAge = TimeSpan.FromMinutes(60), 
         Path = "/api/auth/updateToken"
     };
 
@@ -41,19 +39,20 @@ public class UsersController : ControllerBase
         HttpOnly = true,
         Secure = true,
         SameSite = SameSiteMode.Strict,
-        MaxAge = TimeSpan.FromMinutes(15),
         Path = "/api/auth/verify-email"
     };
 
     private readonly string accessTokenPath;
     private readonly string refreshTokenPath;
 
-    public UsersController(AuthService authService, IOptions<JwtSettings> _jwtSettings)
+    public UsersController(AuthService authService, IOptions<JwtSettings> _jwtSettings, IOptions<VerifyRepoSettings> verifyOptions)
     {
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         accessTokenPath = _jwtSettings.Value.AccessTokenStorage ?? throw new ArgumentNullException(nameof(_jwtSettings));
         refreshTokenPath = _jwtSettings.Value.RefreshTokenStorage ?? throw new ArgumentNullException(nameof(_jwtSettings));
-
+        accOptions.MaxAge = TimeSpan.FromMinutes(_jwtSettings.Value.accessTokenExpiration);
+        refOptions.MaxAge = TimeSpan.FromMinutes(_jwtSettings.Value.refreshTokenExpiration);
+        verOptions.MaxAge = TimeSpan.FromMinutes(verifyOptions.Value.VerifivationTimeLimit);
     }
 
 

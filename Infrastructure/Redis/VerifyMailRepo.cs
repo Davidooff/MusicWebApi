@@ -6,6 +6,9 @@ using NRedisStack.Search;
 using StackExchange.Redis;
 using NRedisStack.RedisStackCommands;
 using Microsoft.Extensions.Logging;
+using MongoDB.Driver.Core.Configuration;
+using Infrastructure.Datasbase;
+using System.Text.RegularExpressions;
 
 namespace Infrastructure.Redis;
 
@@ -16,9 +19,14 @@ public class VerifyMailRepo
     private readonly short _maxAttempts;
     private readonly Random _random = new Random();
     private readonly ILogger<VerifyMailRepo> _logger;
+    private readonly UsersRepository _usersRepository;
+    private readonly Regex _idRegex = new Regex(@":([^:]+)");
+    private readonly short _verifyTtl;
 
-    public VerifyMailRepo(IOptions<VerifyRepoSettings> options, ILogger<VerifyMailRepo> logger)
+    public VerifyMailRepo(IOptions<VerifyRepoSettings> options, ILogger<VerifyMailRepo> logger, UsersRepository usersRepository)
     {
+        _verifyTtl = options.Value.VerifivationTimeLimit;
+        _usersRepository = usersRepository ?? throw new ArgumentNullException(nameof(usersRepository), "UsersRepository cannot be null.");
         _maxAttempts = options.Value.VerificationLimit;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger), "Logger cannot be null.");
 
@@ -28,8 +36,10 @@ public class VerifyMailRepo
             User = options.Value.User,
             Password = options.Value.Password,
         };
-
-        _db = ConnectionMultiplexer.Connect(conf).GetDatabase();
+        var redis = ConnectionMultiplexer.Connect(conf);
+        _db = redis.GetDatabase();
+        var subscriber = redis.GetSubscriber();
+        subscriber.Subscribe("__keyevent@0__:expired", onExpired);
 
         var hashSchema = new Schema()
             .AddNumericField("code")
@@ -51,6 +61,18 @@ public class VerifyMailRepo
         }
     }
 
+    private void onExpired(RedisChannel channel, RedisValue message)
+    {
+        Match match = _idRegex.Match(message.ToString());
+        Console.WriteLine($"Key expired: {message}. Match: {match.Success}");
+        if (match.Success)
+        {
+            var id = match.Groups[1].ToString();
+            _logger.LogWarning("Deleting userID: {id}", id);
+            _usersRepository.DeleteUser(id);
+        }
+    }
+
     public int CreateCode() =>
         _random.Next(100000, 999999);
 
@@ -63,7 +85,7 @@ public class VerifyMailRepo
                 new("code", code),
                 new("attempts", 0)
             });
-        await _db.KeyExpireAsync($"hverifyUser:{userId}", TimeSpan.FromMinutes(5));
+        await _db.KeyExpireAsync($"hverifyUser:{userId}", TimeSpan.FromMinutes(_verifyTtl));
     }
 
     /// <summary>
