@@ -27,11 +27,9 @@ public class VerifyMailRepo
         _maxAttempts = options.Value.VerificationLimit;
     }
 
-    public short CreateCode()
-    {         // Generate a random 6-digit code
-        short code = (short)_random.Next(100000, 999999);
-        return code;
-    }
+    public int CreateCode() 
+        => _random.Next(100000, 999999);
+     
 
     // returns the sessionId or null if not created
     public async Task Create(string userId, short code)
