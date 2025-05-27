@@ -32,14 +32,21 @@ public class UserRedisRepository
         var hashSchema = new Schema()
             .AddNumericField("timesListned");
 
-        _usersDb.FT().DropIndex("hash-idx:users");
-        bool hashIndexCreated = _usersDb.FT().Create(
-            "hash-idx:users",
-            new FTCreateParams()
-                .On(IndexDataType.HASH)
-                .Prefix("huser:"),
-            hashSchema
-        );
+        try
+        {
+            _usersDb.FT().DropIndex("hash-idx:users");
+            bool hashIndexCreated = _usersDb.FT().Create(
+                "hash-idx:users",
+                new FTCreateParams()
+                    .On(IndexDataType.HASH)
+                    .Prefix("huser:"),
+                hashSchema
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Failed to create index for verify users: {Message}", ex.Message);
+        }
     }
 
     private async Task SetSession(string userId)

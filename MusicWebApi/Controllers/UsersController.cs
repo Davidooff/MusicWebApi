@@ -66,7 +66,7 @@ public class UsersController : ControllerBase
     }
 
     [Authorize]
-    [HttpPost("verify")]
+    [HttpPost("verify-email")]
     public async Task<IResult> Verify(CodeVerify codeVerify)
     {
         var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();

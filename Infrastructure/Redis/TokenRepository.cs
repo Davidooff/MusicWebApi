@@ -40,15 +40,21 @@ public class TokenRepository
             .AddTextField("sessionId")
             .AddTextField("ref");
 
-
-        _db.FT().DropIndex("hash-idx:tokens");
-        bool hashIndexCreated = _db.FT().Create(
-            "hash-idx:tokens",
-            new FTCreateParams()
-                .On(IndexDataType.HASH)
-                .Prefix("htokens:"),
-            hashSchema
-        );
+        try
+        {
+            _db.FT().DropIndex("hash-idx:tokens");
+            bool hashIndexCreated = _db.FT().Create(
+                "hash-idx:tokens",
+                new FTCreateParams()
+                    .On(IndexDataType.HASH)
+                    .Prefix("htokens:"),
+                hashSchema
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Failed to create index for verify users: {Message}", ex.Message);
+        }
     }
 
     /// <summary>

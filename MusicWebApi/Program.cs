@@ -10,7 +10,6 @@ using Domain.Options;
 using Infrastructure.Database;
 using Infrastructure.MailService;
 using Infrastructure.Redis;
-using MusicWebApi.src.Infrastructure.Redisk;
 using SharpGrip.FluentValidation.AutoValidation.Mvc.Extensions;
 using System.Text;
 using Infrastructure.Datasbase;

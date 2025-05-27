@@ -1,51 +1,71 @@
-﻿using Redis.OM;
-using Redis.OM.Searching;
-using Microsoft.Extensions.Options;
+﻿
 using Domain.Options;
-using Domain.Entities;
+using Microsoft.Extensions.Options;
+using NRedisStack.Search.Literals.Enums;
+using NRedisStack.Search;
 using StackExchange.Redis;
+using NRedisStack.RedisStackCommands;
+using Microsoft.Extensions.Logging;
 
-namespace MusicWebApi.src.Infrastructure.Redisk;
+namespace Infrastructure.Redis;
+
+
 public class VerifyMailRepo
 {
+    private readonly IDatabase _db;
     private readonly short _maxAttempts;
-    private readonly RedisConnectionProvider _provider;
-    private readonly IRedisCollection<VerifyUserRedis> _usersCollection;
     private readonly Random _random = new Random();
+    private readonly ILogger<VerifyMailRepo> _logger;
 
-    public VerifyMailRepo(IOptions<VerifyRepoSettings> options)
+    public VerifyMailRepo(IOptions<VerifyRepoSettings> options, ILogger<VerifyMailRepo> logger)
     {
+        _maxAttempts = options.Value.VerificationLimit;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger), "Logger cannot be null.");
+
         ConfigurationOptions conf = new ConfigurationOptions
         {
             EndPoints = { options.Value.EndPoint },
             User = options.Value.User,
-            Password = options.Value.Password
+            Password = options.Value.Password,
         };
-        _provider = new RedisConnectionProvider(conf);
-        _provider.Connection.CreateIndexAsync(typeof(VerifyUserRedis));
-        _usersCollection = _provider.RedisCollection<VerifyUserRedis>();
-        _maxAttempts = options.Value.VerificationLimit;
+
+        _db = ConnectionMultiplexer.Connect(conf).GetDatabase();
+
+        var hashSchema = new Schema()
+            .AddNumericField("code")
+            .AddNumericField("attempts");
+
+        try
+        {
+            _db.FT().DropIndex("hash-idx:verifyUsers");
+            bool hashIndexCreated = _db.FT().Create(
+                "hash-idx:verifyUsers",
+                new FTCreateParams()
+                    .On(IndexDataType.HASH)
+                    .Prefix("hverifyUser:"),
+                hashSchema
+            );
+        } catch(Exception ex)
+        {
+            _logger.LogWarning("Failed to create index for verify users: {Message}", ex.Message);
+        }
     }
 
-    public int CreateCode() 
-        => _random.Next(100000, 999999);
-     
+    public int CreateCode() =>
+        _random.Next(100000, 999999);
 
-    // returns the sessionId or null if not created
     public async Task Create(string userId, int code)
     {
-        var el = await _usersCollection.Where(x => x.UserId == userId).FirstOrDefaultAsync();
-        if (el is not null)
-            await _usersCollection.DeleteAsync(el);
-
-        var user = new VerifyUserRedis
-        {
-            UserId = userId,
-            Code = code,
-        };
-        await _usersCollection.InsertAsync(user, TimeSpan.FromMinutes(15));
+        //var userEl = await _db.KeyTypeAsync($"hverifyUser:{userId}");
+        //if (userEl != RedisType.Hash)
+        await _db.HashSetAsync($"hverifyUser:{userId}",
+            new HashEntry[] {
+                new("code", code),
+                new("attempts", 0)
+            });
+        await _db.KeyExpireAsync($"hverifyUser:{userId}", TimeSpan.FromMinutes(5));
     }
-    
+
     /// <summary>
     /// Verifies the code for the given session ID. If sesion ID is not found, it returns null.
     /// </summary>
@@ -54,36 +74,34 @@ public class VerifyMailRepo
     /// <returns></returns>
     public async Task<bool?> Verify(string userID, int code)
     {
-        var el = await _usersCollection.Where(x => x.UserId == userID).FirstOrDefaultAsync();
-        
-        Console.WriteLine(el.ToString());
+        var el = await _db.HashGetAllAsync($"hverifyUser:{userID}");
 
-        if (el is null)
-            return null;
-
-        if (el.Attempts >= _maxAttempts)
+        if (el is null || el.Length == 0)
         {
-            await _usersCollection.DeleteAsync(el);
             return null;
         }
 
-        if (el.Code == code)
+        var attempts = (short)el.First(el => el.Name == "attempts").Value;
+        var storedCode = (int)el.First(el => el.Name == "code").Value;
+
+        if (attempts >= _maxAttempts)
         {
-            await _usersCollection.DeleteAsync(el);
+            await _db.KeyDeleteAsync($"hverifyUser:{userID}");
+            return null;
+        }
+
+        if (storedCode == code)
+        {
+            await _db.KeyDeleteAsync($"hverifyUser:{userID}");
             return true;
         }
-        el.Attempts++;
-        await _usersCollection.UpdateAsync(el);
+
+        await _db.HashIncrementAsync($"hverifyUser:{userID}", "attempts");
         return false;
     }
 
     public async Task<bool> RemoveByUserId(string userId)
     {
-        var el = await _usersCollection.Where(x => x.UserId == userId).FirstOrDefaultAsync();
-        if (el is null)
-            return false;
-        await _usersCollection.DeleteAsync(el);
-        return true;
+        return await _db.KeyDeleteAsync($"hverifyUser:{userId}");
     }
 }
-
