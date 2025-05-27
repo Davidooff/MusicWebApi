@@ -71,10 +71,18 @@ public class UsersController : ControllerBase
         var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
         var session = GetSessionInfo(userAgent);
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new InvalidToken();
-
-        var tokens = await _authService.Verify(userId, codeVerify.Code, session);
-        SetTokenCookies(tokens);
-        return Results.Ok();
+        try
+        {
+            var tokens = await _authService.Verify(userId, codeVerify.Code, session);
+            SetTokenCookies(tokens);
+            return Results.Ok();
+        }
+        catch (Exception ex)
+        {
+            if (ex is UserNotFound)
+                Response.Cookies.Delete(accessTokenPath);
+            throw;
+        }
     }
 
     [HttpPost("login")]
