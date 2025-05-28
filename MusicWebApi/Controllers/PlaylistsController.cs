@@ -8,7 +8,7 @@ using Infrastructure.Database;
 namespace MusicWebApi.Controllers;
 
 [ApiController]
-[Route("music/service/playlist")]
+[Route("/playlist")]
 public class PlayListController : ControllerBase
 {
     private readonly UserAlbumRepository _userAlbumRepository;
@@ -79,5 +79,15 @@ public class PlayListController : ControllerBase
             return Results.Ok();
 
         return Results.NotFound();
+    }
+
+    [HttpGet("/{playlistId}")]
+    public async Task<IResult> GetPlaylist(string playlistId)
+    {
+        var playlist = await _userAlbumRepository.GetAsync(playlistId);
+        if (playlist is null)
+            return Results.NotFound();
+
+        return Results.Ok(playlist);
     }
 }

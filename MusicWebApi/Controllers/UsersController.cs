@@ -91,10 +91,7 @@ public class UsersController : ControllerBase
         var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
         var session = GetSessionInfo(userAgent);
         var newTokens = await _authService.Auth(user, session);
-        if (newTokens.refreshToken is null)
-            Response.Cookies.Append(accessTokenPath, newTokens.accessToken, verOptions);
-        else
-            SetTokenCookies((newTokens.accessToken, newTokens.refreshToken)); 
+        SetTokenCookies((newTokens.accessToken, newTokens.refreshToken)); 
 
         return Results.Ok();
     }

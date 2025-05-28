@@ -66,7 +66,7 @@ public class AuthService
             var mailId = _verifyMailRepo.Create(userId, code);
             _MailService.SendCode(code, email);
             await mailId;
-            return _jwtService.GenerateToken(userId, 15);
+            return _jwtService.GenerateToken(userId, 5);
         }
         catch (Exception e)
         {
@@ -181,7 +181,7 @@ public class AuthService
     /// <exception cref="WrongPassword">
     /// Wrong password
     /// </exception>
-    public async Task<(string accessToken, string? refreshToken)>
+    public async Task<(string accessToken, string refreshToken)>
     Auth(UserAuth userAuth, (string name, ESessionType type) session)
     {
         UserDB? user = await _usersRepository.GetAsync(new UserSerchOptions { Email = userAuth.Email });
@@ -211,12 +211,8 @@ public class AuthService
             return newTokens;
         } else
         {
-            var accessToken = await CreateUserVerificationTokens(user.Id, user.Email);
-
-            if (String.IsNullOrEmpty(accessToken))
-                throw new Exception("Unable to auth user");
-            
-            return (accessToken, null);
+            await _usersRepository.RemoveAsync(user.Id);
+            throw new UserWasNotVerifyed();
         }
     }
 
