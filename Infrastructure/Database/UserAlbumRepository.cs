@@ -51,5 +51,10 @@ public class UserAlbumRepository
 
         return _.IsAcknowledged && _.ModifiedCount == 1;
     }
+
+    public async Task<List<UserAlbumDB>?> GetUserAlbums(string userId)
+    {
+        return await (await _userAbumCollection.FindAsync(x => x.OwnerId == userId)).ToListAsync();
+    }
 }
 

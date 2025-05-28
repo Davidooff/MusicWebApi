@@ -8,14 +8,14 @@ using Infrastructure.Database;
 namespace MusicWebApi.Controllers;
 
 [ApiController]
-[Route("music/service/playlist")]
-public class PlayListController : ControllerBase
+[Route("playlists")]
+public class PlaylistsController : ControllerBase
 {
     private readonly UserAlbumRepository _userAlbumRepository;
     private readonly PlatformsService _platformsService;
     private readonly MusicFileRepository _musicFileRepo;
 
-    public PlayListController(UserAlbumRepository userAlbumRepository, 
+    public PlaylistsController(UserAlbumRepository userAlbumRepository, 
         PlatformsService platformsService, 
         MusicFileRepository musicFileRepo)
     {
@@ -79,5 +79,43 @@ public class PlayListController : ControllerBase
             return Results.Ok();
 
         return Results.NotFound();
+    }
+
+    [HttpGet("{playlistId}")]
+    public async Task<IResult> GetPlaylist(string playlistId)
+    {
+        var playlist = await _userAlbumRepository.GetAsync(playlistId);
+        if (playlist is null)
+            return Results.NotFound();
+
+        return Results.Ok(playlist);
+    }
+
+    [HttpGet("user/{userId}")]
+    public async Task<IResult> GetUsersPlaylists(string userId)
+    {
+        var playlist = await _userAlbumRepository.GetUserAlbums(userId);
+        if (playlist is null)
+            return Results.NotFound();
+
+        return Results.Ok(playlist);
+    }
+
+    [Authorize]
+    [HttpGet("my")]
+    public async Task<IResult> GetUsersPlaylists()
+    {
+        Console.WriteLine("Getting user playlists...");
+        var sessionId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        Console.WriteLine($"Session ID: {sessionId}");
+        if (string.IsNullOrEmpty(sessionId))
+            return Results.Unauthorized();
+
+
+        var playlist = await _userAlbumRepository.GetUserAlbums(sessionId);
+        if (playlist is null)
+            return Results.NotFound();
+
+        return Results.Ok(playlist);
     }
 }

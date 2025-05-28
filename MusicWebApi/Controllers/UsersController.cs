@@ -44,9 +44,11 @@ public class UsersController : ControllerBase
 
     private readonly string accessTokenPath;
     private readonly string refreshTokenPath;
+    private readonly JwtService _jwtService;
 
-    public UsersController(AuthService authService, IOptions<JwtSettings> _jwtSettings, IOptions<VerifyRepoSettings> verifyOptions)
+    public UsersController(AuthService authService, IOptions<JwtSettings> _jwtSettings, IOptions<VerifyRepoSettings> verifyOptions, JwtService jwtService)
     {
+        _jwtService = jwtService ?? throw new ArgumentNullException(nameof(jwtService));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         accessTokenPath = _jwtSettings.Value.AccessTokenStorage ?? throw new ArgumentNullException(nameof(_jwtSettings));
         refreshTokenPath = _jwtSettings.Value.RefreshTokenStorage ?? throw new ArgumentNullException(nameof(_jwtSettings));
@@ -70,11 +72,21 @@ public class UsersController : ControllerBase
     {
         var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
         var session = GetSessionInfo(userAgent);
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new InvalidToken();
+        var accessToken = Request.Cookies[accessTokenPath];
+        var userId = _jwtService.GetIdFromToken(accessToken); // It's okay since in throw error if id not found
 
-        var tokens = await _authService.Verify(userId, codeVerify.Code, session);
-        SetTokenCookies(tokens);
-        return Results.Ok();
+        try
+        {
+            var tokens = await _authService.Verify(userId, codeVerify.Code, session);
+            SetTokenCookies(tokens);
+            return Results.Ok();
+        }
+        catch (Exception ex)
+        {
+            if (ex is UserNotFound)
+                Response.Cookies.Delete(accessTokenPath);
+            throw;
+        }
     }
 
     [HttpPost("login")]
@@ -83,10 +95,7 @@ public class UsersController : ControllerBase
         var userAgent = HttpContext.Request.Headers["User-Agent"].ToString();
         var session = GetSessionInfo(userAgent);
         var newTokens = await _authService.Auth(user, session);
-        if (newTokens.refreshToken is null)
-            Response.Cookies.Append(accessTokenPath, newTokens.accessToken, verOptions);
-        else
-            SetTokenCookies((newTokens.accessToken, newTokens.refreshToken)); 
+        SetTokenCookies((newTokens.accessToken, newTokens.refreshToken)); 
 
         return Results.Ok();
     }
