@@ -96,7 +96,7 @@ public class TokenRepository
         return sessionId;
     }
 
-    private async Task<string?> getUserIdBySeesion(string sessionId)
+    public async Task<string?> getUserIdBySeesion(string sessionId)
     {
         var el = await _db.FT().SearchAsync("hash-idx:tokens", new Query($"@sessionId:{sessionId}"));
 

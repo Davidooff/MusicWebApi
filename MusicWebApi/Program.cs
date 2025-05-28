@@ -13,6 +13,7 @@ using Infrastructure.Redis;
 using SharpGrip.FluentValidation.AutoValidation.Mvc.Extensions;
 using System.Text;
 using Infrastructure.Datasbase;
+using MusicWebApi.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging.ClearProviders();
@@ -48,44 +49,18 @@ var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()
                   ?? throw new InvalidOperationException("JwtSettings not configured.");
 var key = Encoding.ASCII.GetBytes(jwtSettings.Secret);
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.RequireHttpsMetadata = builder.Environment.IsProduction(); // True in production
-    options.SaveToken = true; // Not strictly necessary if we read from cookie ourselves, but good practice
-    options.TokenValidationParameters = new TokenValidationParameters
+
+builder.Services.AddAuthentication(RedisAuthOptions.DefaultScheme)
+    .AddScheme<RedisAuthOptions, RedisAuthenticationHandler>(RedisAuthOptions.DefaultScheme, options =>
     {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(key),
-        ValidateIssuer = true,
-        ValidIssuer = jwtSettings.Issuer,
-        ValidateAudience = true,
-        ValidAudience = jwtSettings.Audience,
-        ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero // Remove clock skew
-    };
-    // Read token from HttpOnly cookie
-    options.Events = new JwtBearerEvents
-    {
-        OnMessageReceived = context =>
-        {
-            context.Token = context.Request.Cookies[jwtSettings.AccessTokenStorage];
-            return Task.CompletedTask;
-        },
-        // Optional: Handle authentication failure (e.g., token expired but not yet refreshed)
-        OnAuthenticationFailed = context =>
-        {
-            if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
-            {
-                context.Response.Headers.Append("Token-Expired", "true");
-            }
-            return Task.CompletedTask;
-        }
-    };
+        options.AccessTokenPath = builder.Configuration["Jwt:AccessTokenStorage"] ?? throw new ArgumentNullException(); 
+    });
+
+builder.Services.AddLogging(logging =>
+{
+    logging.AddConsole();
+    logging.AddDebug();
+    logging.SetMinimumLevel(LogLevel.Debug);
 });
 
 //redis
@@ -96,6 +71,7 @@ builder.Services.AddSingleton<VerifyMailRepo>();
 builder.Services.AddSingleton<UsersRepository>();
 builder.Services.AddSingleton<MusicFileRepository>();
 builder.Services.AddSingleton<MusicRepository>();
+builder.Services.AddSingleton<UserAlbumRepository>();
 //services
 builder.Services.AddSingleton<JwtService>();
 builder.Services.AddSingleton<EmailService>();
@@ -118,7 +94,6 @@ if (app.Environment.IsDevelopment())
 }
 
 
-app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
