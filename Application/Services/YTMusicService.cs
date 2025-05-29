@@ -67,7 +67,7 @@ public class YTMusicService : IPlatform
             PlatformId = album.Id,
             Name = album.Name,
             Trackes = album.Songs
-                .Select(el => new TrackInAlb() { Id = el.Id ?? "", Name = el.Name, Duration = (int)el.Duration.TotalSeconds })
+                .Select(el => new TrackInPlatformAlb() { Id = el.Id ?? "", Name = el.Name, Duration = (int)el.Duration.TotalSeconds })
                 .ToArray(),
             Author = album.Artists.Select(el => 
                 new IdNameGroup() { Id = el.Id ?? "", Name = el.Name }).ToArray(),

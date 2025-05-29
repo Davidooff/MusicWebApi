@@ -1,6 +1,4 @@
-﻿using System.Security.Claims;
-using System.Text.Json;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Application.Dto;
@@ -31,7 +29,7 @@ public class UsersController : ControllerBase
         HttpOnly = true,
         Secure = true,
         SameSite = SameSiteMode.Strict,
-        Path = "/api/auth/updateToken"
+        Path = "/api/auth/refresh-token"
     };
 
     private readonly CookieOptions verOptions = new CookieOptions
@@ -100,7 +98,7 @@ public class UsersController : ControllerBase
         return Results.Ok();
     }
 
-    [HttpPatch("updateToken")]
+    [HttpPatch("refresh-token")]
     public async Task<IResult> updateToken()
     {
         var refreshToken = Request.Cookies[refreshTokenPath];

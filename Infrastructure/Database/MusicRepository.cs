@@ -2,18 +2,16 @@
 using Domain.Entities;
 using Domain.Options;
 using Microsoft.Extensions.Options;
+using System.Diagnostics;
+using MongoDB.Driver.Linq;
+using Org.BouncyCastle.Asn1.Crmf;
 
 namespace Infrastructure.Database;
 
 public class MusicRepository
 {
     private readonly IMongoCollection<AlbumDB> _ytAlbumsCollection;
-    private readonly IMongoCollection<TrackDB> _ytTrackCollection;
 
-    private static readonly UpdateDefinition<TrackDB> _incrementCounters =
-        Builders<TrackDB>.Update
-            .Inc(x => x.TimesListened.Total, 1)
-            .Inc(x => x.TimesListened.ThisWeek, 1);
 
     public MusicRepository(IOptions<DatabaseSettings> databaseSettings)
     {
@@ -26,13 +24,9 @@ public class MusicRepository
         _ytAlbumsCollection = mongoDatabase.GetCollection<AlbumDB>(
             databaseSettings.Value.YTPlaylists);
 
-        _ytTrackCollection = mongoDatabase.GetCollection<TrackDB>(
-            databaseSettings.Value.YTTracks);
-
     }
 
     protected IMongoCollection<AlbumDB> GetAlbumPlatform (EPlatform platform)=> _ytAlbumsCollection;
-    protected IMongoCollection<TrackDB> GetTrackPlatform(EPlatform platform) => _ytTrackCollection;
 
 
     /// <summary>
@@ -41,11 +35,23 @@ public class MusicRepository
     /// <returns>Is el was found</returns>
     public async Task<bool> AddListening(string trackId, EPlatform platform)
     {
-        var collection = GetTrackPlatform(platform);
-        var filter = Builders<TrackDB>.Filter.Eq(el => el.PlatformId, trackId);
-        var updateResult = await collection.UpdateOneAsync(filter, _incrementCounters);
+        var collection = GetAlbumPlatform(platform);
+        var filter = Builders<AlbumDB>.Filter.ElemMatch(el => el.Trackes, trackes => trackes.Id == trackId);
 
-        return updateResult.IsAcknowledged && updateResult.ModifiedCount != 0;
+        var result = await collection.Find(filter).FirstOrDefaultAsync();
+        if (result == null)
+        {
+            return false; // Handle case where no matching document is found
+        }
+
+        result.TimesListened.AddOneListening();
+        var trackRes = result.Trackes.First(el => el.Id == trackId);
+        trackRes.TimesListened.AddOneListening();
+
+        var updateFilter = Builders<AlbumDB>.Filter.Eq(el => el.Id, result.Id);
+        var updateResult = await collection.ReplaceOneAsync(updateFilter, result);
+
+        return updateResult.IsAcknowledged && updateResult.ModifiedCount > 0;
     }
 
     public async Task<bool> AddAlbum(AlbumDB album, EPlatform platform)
