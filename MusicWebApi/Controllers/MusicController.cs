@@ -7,7 +7,7 @@ using Infrastructure.Database;
 namespace MusicWebApi.Controllers;
 
 [ApiController]
-[Route("music/service")]
+[Route("music")]
 public class MusicController : ControllerBase
 {
     private readonly PlatformsService _platformsService;

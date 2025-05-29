@@ -16,7 +16,7 @@ public class AlbumDB
 
     public IdNameGroup[] Author { get; set; } = null!;
 
-    public TrackInAlb[] Trackes { get; set; } = null!; 
+    public TrackInPlatformAlb[] Trackes { get; set; } = null!; 
 
     public ListeningStats TimesListened { get; set; } = new ListeningStats(0);
 
