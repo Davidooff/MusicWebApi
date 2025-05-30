@@ -10,7 +10,7 @@ public class TrackData
 
     public EPlatform EPlatform { get; set; }
 
-    public string ImgUrl { get; set; } = string.Empty;
+    public TrackImage[] ImgUrls { get; set; } = [];
 
     public string AlbumId { get; set; } = null!;
 

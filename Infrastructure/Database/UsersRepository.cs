@@ -40,6 +40,12 @@ public class UsersRepository
             .FirstOrDefaultAsync();
     }
 
+    public async Task<UserDB?> GetByIdAsync(string id)
+    {
+        return await _usersCollection.Find(x =>x.Id == id)
+            .FirstOrDefaultAsync();
+    }
+
     public async Task CreateAsync(UserDB newUser) =>
         await _usersCollection.InsertOneAsync(newUser);
 

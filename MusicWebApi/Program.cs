@@ -63,15 +63,15 @@ builder.Services.AddLogging(logging =>
     logging.SetMinimumLevel(LogLevel.Debug);
 });
 
-//redis
-builder.Services.AddSingleton<UserRedisRepository>();
-builder.Services.AddSingleton<TokenRepository>();
-builder.Services.AddSingleton<VerifyMailRepo>();
 //mongo
 builder.Services.AddSingleton<UsersRepository>();
 builder.Services.AddSingleton<MusicFileRepository>();
 builder.Services.AddSingleton<MusicRepository>();
 builder.Services.AddSingleton<UserAlbumRepository>();
+//redis
+builder.Services.AddSingleton<UserRedisRepository>();
+builder.Services.AddSingleton<TokenRepository>();
+builder.Services.AddSingleton<VerifyMailRepo>();
 //services
 builder.Services.AddSingleton<JwtService>();
 builder.Services.AddSingleton<EmailService>();

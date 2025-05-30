@@ -2,6 +2,8 @@
 using MongoDB.Driver;
 using Domain.Entities;
 using Domain.Options;
+using Org.BouncyCastle.Security;
+using System.Xml.Linq;
 
 namespace Infrastructure.Database;
 public class UserAlbumRepository
@@ -25,12 +27,9 @@ public class UserAlbumRepository
         await _userAbumCollection.Find(x =>
             x.Id == userId)
             .FirstOrDefaultAsync();
-    
-    public async Task CreateAsync(UserAlbumDB newUser) =>
-        await _userAbumCollection.InsertOneAsync(newUser);
 
-    public async Task CreateAsync(string userId) =>
-        await _userAbumCollection.InsertOneAsync(new UserAlbumDB() { OwnerId = userId });
+    public async Task CreateAsync(string userId, string userName, string? name) =>
+        await _userAbumCollection.InsertOneAsync(new UserAlbumDB(new(userId, userName), null));
 
     public async Task RemovePlaylis(string id) =>
         await _userAbumCollection.DeleteOneAsync(x => x.Id == id);
@@ -54,7 +53,35 @@ public class UserAlbumRepository
 
     public async Task<List<UserAlbumDB>?> GetUserAlbums(string userId)
     {
-        return await (await _userAbumCollection.FindAsync(x => x.OwnerId == userId)).ToListAsync();
+        return await (await _userAbumCollection.FindAsync(x => x.Owner.Id == userId)).ToListAsync();
+    }
+
+    public async Task<IEnumerable<PlaylistCollectionEl>> GetUsersPlaylistsInfo(string userId)
+    {
+        var filter = Builders<UserAlbumDB>.Filter.Eq(u => u.Owner.Id, userId);
+        var userAlbums = await _userAbumCollection.FindAsync(filter);
+        if (userAlbums == null)
+            return [];
+
+        return userAlbums.ToList().Select(x => 
+            new PlaylistCollectionEl (x.Id, x.Name) { 
+              Owner = x.Owner, Imgs = GetImgs(x.Track, 500) 
+            });
+    }
+
+    private TrackImage[] GetImgs(TrackData[] trackData, int target)
+    {
+        if (trackData.Length == 0)
+            return [];
+        if (trackData.Length >= 1 && trackData.Length < 4)
+            return [TrackImage.TakeNearestResolution(trackData[0].ImgUrls, target)];
+        else
+            return [
+                TrackImage.TakeNearestResolution(trackData[0].ImgUrls, target),
+                TrackImage.TakeNearestResolution(trackData[1].ImgUrls, target),
+                TrackImage.TakeNearestResolution(trackData[2].ImgUrls, target),
+                TrackImage.TakeNearestResolution(trackData[3].ImgUrls, target)
+                ];
     }
 }
 
