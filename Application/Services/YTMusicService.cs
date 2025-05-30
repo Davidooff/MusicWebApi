@@ -1,4 +1,5 @@
-﻿using Domain.Entities;
+﻿using System.Xml.Linq;
+using Domain.Entities;
 using Microsoft.Extensions.Logging;
 using YouTubeMusicAPI.Client;
 using YouTubeMusicAPI.Models;
@@ -25,15 +26,8 @@ public class YTMusicService : IPlatform
         foreach (YouTubeMusicItem artist in song.Artists)
         {
             if (artist.Id is not null)
-                ArtistsList.Add(new() { Id = artist.Id, Name = artist.Name });
+                ArtistsList.Add(new( artist.Id,  artist.Name));
         }
-
-        // Fix for CS0029: Extract the URL from the Thumbnail object
-        string? thumbnailUrl = song.Thumbnails.MaxBy(el => el.Width * el.Height)?.Url;
-
-        // Fix for CS8601: Ensure thumbnailUrl is not null before assignment
-        if (thumbnailUrl == null)
-            throw new ArgumentException("Thumbnails cannot be null or empty", nameof(song.Thumbnails));
        
 
         return new ()
@@ -43,7 +37,7 @@ public class YTMusicService : IPlatform
             AlbumId = song.Album.Id ?? "",
             EPlatform = EPlatform.YTMusic,
             Artists = ArtistsList.ToArray(),
-            ImgUrl = thumbnailUrl,
+            ImgUrls = song.Thumbnails.Select(el => new TrackImage(el.Url, el.Width * el.Height)).ToArray(),
             Duration = (int)song.Duration.TotalSeconds,
         };
     }
@@ -67,10 +61,10 @@ public class YTMusicService : IPlatform
             PlatformId = album.Id,
             Name = album.Name,
             Trackes = album.Songs
-                .Select(el => new TrackInPlatformAlb() { Id = el.Id ?? "", Name = el.Name, Duration = (int)el.Duration.TotalSeconds })
+                .Select(el => new TrackInPlatformAlb(el.Id , el.Name) { Duration = (int)el.Duration.TotalSeconds })
                 .ToArray(),
             Author = album.Artists.Select(el => 
-                new IdNameGroup() { Id = el.Id ?? "", Name = el.Name }).ToArray(),
+                new IdNameGroup( el.Id ,  el.Name)).ToArray(),
             ImgUrl = album.Thumbnails.Last().Url,
         };
     }

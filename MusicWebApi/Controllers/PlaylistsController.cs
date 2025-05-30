@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 using Application.Dto;
 using Application.Services;
 using Infrastructure.Database;
+using Infrastructure.Redis;
+using Infrastructure.Datasbase;
+using Domain.Entities;
 
 namespace MusicWebApi.Controllers;
 
@@ -14,11 +17,17 @@ public class PlaylistsController : ControllerBase
     private readonly UserAlbumRepository _userAlbumRepository;
     private readonly PlatformsService _platformsService;
     private readonly MusicFileRepository _musicFileRepo;
+    private readonly UserRedisRepository _userRedis;
+    private readonly UsersRepository _usersRepository;
 
     public PlaylistsController(UserAlbumRepository userAlbumRepository, 
         PlatformsService platformsService, 
-        MusicFileRepository musicFileRepo)
+        MusicFileRepository musicFileRepo,
+        UserRedisRepository userRedis,
+        UsersRepository usersRepository)
     {
+        _usersRepository = usersRepository;
+        _userRedis = userRedis;
         _userAlbumRepository = userAlbumRepository;
         _platformsService = platformsService;
         _musicFileRepo = musicFileRepo;
@@ -26,14 +35,21 @@ public class PlaylistsController : ControllerBase
 
     [Authorize]
     [HttpPost("create")]
-    public async Task<IResult> CreatePlaylist(string name)
+    public async Task<IResult> CreatePlaylist(CreatePlaylist createDto)
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null)
             return Results.Unauthorized();
 
-        await _userAlbumRepository.CreateAsync(userId);
-        return Results.Ok();
+        var user = await _usersRepository.GetByIdAsync(userId);
+
+        if (user is null) return Results.Unauthorized();
+
+        await _userAlbumRepository.CreateAsync(userId, user.Username, createDto.Name);
+        var update = await _userRedis.UpdateUserAlbums(userId);
+        if (update is null) return Results.BadRequest();
+
+        return Results.Ok(update.Value.data);
     }
 
     [Authorize]
@@ -105,17 +121,17 @@ public class PlaylistsController : ControllerBase
     [HttpGet("my")]
     public async Task<IResult> GetUsersPlaylists()
     {
-        Console.WriteLine("Getting user playlists...");
-        var sessionId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        Console.WriteLine($"Session ID: {sessionId}");
-        if (string.IsNullOrEmpty(sessionId))
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
             return Results.Unauthorized();
 
-
-        var playlist = await _userAlbumRepository.GetUserAlbums(sessionId);
+        var playlist = await _userRedis.GetUserAlbums(userId);
         if (playlist is null)
-            return Results.NotFound();
-
+        {
+            await _userRedis.UpdateUserAlbums(userId);
+            playlist = await _userRedis.GetUserAlbums(userId);
+            if (playlist is null) return Results.NotFound();
+        }
         return Results.Ok(playlist);
     }
 }

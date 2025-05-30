@@ -43,10 +43,10 @@ public class AuthService
         });
     }
 
-    private async Task<(string accToken, string refToken)> CreateTokensAndAssignSessionToRedis(string userId)
+    private async Task<(string accToken, string refToken)> CreateTokensAndAssignSessionToRedis(string userId, string userName)
     {
         var refreshToken = _jwtService.genRefToken(userId);
-        string sessionId = await _tokenRepository.CreateNewSession(userId, refreshToken);
+        string sessionId = await _tokenRepository.CreateNewSession(userId, userName, refreshToken);
         var accessToken = _jwtService.genAccToken(sessionId);
         return (accessToken, refreshToken);
     }
@@ -124,7 +124,7 @@ public class AuthService
 
         var userId = ObjectId.GenerateNewId().ToString();
 
-        var tokens = await CreateTokensAndAssignSessionToRedis(userId);
+        var tokens = await CreateTokensAndAssignSessionToRedis(userId, userAuth.Username);
         Session session = new Session()
         {
             RefreshToken = tokens.refToken,
@@ -157,7 +157,7 @@ public class AuthService
 
         user.IsVerified = true;
 
-        var tokens = await CreateTokensAndAssignSessionToRedis(user.Id);
+        var tokens = await CreateTokensAndAssignSessionToRedis(user.Id, user.Username);
 
         user.Sessions = [new Session()
         {
@@ -199,7 +199,7 @@ public class AuthService
 
         if (user.IsVerified)
         {
-            var newTokens = await CreateTokensAndAssignSessionToRedis(user.Id);
+            var newTokens = await CreateTokensAndAssignSessionToRedis(user.Id, user.Username);
 
             user.Sessions.Append(new Session { 
                 Name = session.name, 
@@ -237,16 +237,22 @@ public class AuthService
     public async Task<(string accessToken, string refreshToken)> 
         RefreshToken(string refreshToken)
     {
-        await _tokenRepository.removeSessionByRefreshToken(refreshToken);
         string userId = _jwtService.GetIdFromToken(refreshToken); // if id is null, exception will be throw
+        var userTask = _usersRepository.GetByIdAsync(userId);
+        var tokenRemove = _tokenRepository.removeSessionByRefreshToken(refreshToken);
 
-        var newTokens = await CreateTokensAndAssignSessionToRedis(userId);
+        if (await userTask is not UserDB user)
+        {
+            throw new InvalidToken(userId);
+        }
+        var newTokens = await CreateTokensAndAssignSessionToRedis(userId, user.Username);
 
         bool done = await _usersRepository.RefreshToken(userId, refreshToken, newTokens.refToken);
 
         if (done is false)
             throw new ExpiredToken(refreshToken);
-
+        
+        await tokenRemove;
         return newTokens; // Assuming you want to return the new access token.
     }
 }

@@ -8,10 +8,19 @@ public class UserAlbumDB
     [BsonRepresentation(BsonType.ObjectId)]
     public string? Id { get; set; } = null!;
 
-    public string OwnerId { get; set; } = null!;
+    public string Name { get; set; } = "New album";
 
-    public TrackData[] Track { get; set; } = [];
+    public IdNameGroup Owner { get; set; } = null!;
+
+    public TrackData[] Track { get; set; } = Array.Empty<TrackData>();
 
     public int timesOpened { get; set; } = 0;
+
+
+    public UserAlbumDB(IdNameGroup owner, string? name)
+    {
+        Owner = owner;
+        if (name is not null) Name = name;
+    }
 }
 

@@ -9,6 +9,8 @@ using Domain.Entities;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
+using Infrastructure.Database;
 
 
 namespace Infrastructure.Redis;
@@ -20,7 +22,11 @@ public class TokenRepository
     private readonly ILogger _logger;
     private readonly static Regex regex = new Regex(@";([^;]+)");
 
-    public TokenRepository(IOptions<TokenRepoSettings> options, ILogger<TokenRepository> logger, UserRedisRepository userRepository)
+    public TokenRepository(
+        IOptions<TokenRepoSettings> options, 
+        ILogger<TokenRepository> logger, 
+        UserRedisRepository userRepository
+        )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger), "Logger cannot be null.");
         _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository), "UserRepository cannot be null.");
@@ -90,7 +96,7 @@ public class TokenRepository
         {
             new("userId", userId),
             new("sessionId", sessionId),
-            new("ref", refreshToken)
+            new("ref", refreshToken),
         });
         await _db.KeyExpireAsync("htokens:" + sessionId, TimeSpan.FromMinutes(60));
         return sessionId;
@@ -170,9 +176,9 @@ public class TokenRepository
         return true;
     }
 
-    public async Task<string> CreateNewSession(string userId, string refreshToken)
+    public async Task<string> CreateNewSession(string userId, string userName, string refreshToken)
     {
-        await _userRepository.CreateOrExtendTtl(userId);
+        await _userRepository.CreateOrExtendTtl(userId, userName);
         return await setSession(userId, refreshToken);
     }
 }
