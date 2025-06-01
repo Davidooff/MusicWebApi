@@ -17,5 +17,11 @@ public class UserDB
 
     public bool IsVerified { get; set; } = false;
 
+    public string LikesId { get; set; } = null!;
+
+    public string DislikesId { get; set; } = null!;
+
+    public string HistoryId { get; set; } = null!;
+
     public Session[] Sessions { get; set; } = [];
 }

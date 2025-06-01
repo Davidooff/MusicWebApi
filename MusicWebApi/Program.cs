@@ -76,6 +76,7 @@ builder.Services.AddSingleton<VerifyMailRepo>();
 builder.Services.AddSingleton<JwtService>();
 builder.Services.AddSingleton<EmailService>();
 builder.Services.AddSingleton<AuthService>();
+builder.Services.AddSingleton<YTMusicService>();
 builder.Services.AddSingleton<PlatformsService>();
 // Filters 
 builder.Services.AddScoped<UsersExceptionFilter>();

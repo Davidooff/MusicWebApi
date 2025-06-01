@@ -10,9 +10,13 @@ public class AlbumDB
     [BsonRepresentation(BsonType.ObjectId)]
     public string? Id { get; set; } = null!;
 
-    public string? PlatformId { get; set; } = null!;
+    public string BrowseId { get; set; } = null!;
+
+    public string AlbumId { get; set; } = null!;
 
     public string Name { get; set; } = null!;
+
+    public TrackImage[] TrackImage { get; set; }
 
     public IdNameGroup[] Author { get; set; } = null!;
 

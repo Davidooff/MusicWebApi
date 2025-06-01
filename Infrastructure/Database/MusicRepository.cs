@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using System.Diagnostics;
 using MongoDB.Driver.Linq;
 using Org.BouncyCastle.Asn1.Crmf;
+using MongoDB.Bson;
 
 namespace Infrastructure.Database;
 
@@ -57,11 +58,18 @@ public class MusicRepository
     public async Task<bool> AddAlbum(AlbumDB album, EPlatform platform)
     {
         var collection = GetAlbumPlatform(platform);
-        var filter = Builders<AlbumDB>.Filter.Eq(el => el.PlatformId, album.PlatformId);
+        var filter = Builders<AlbumDB>.Filter.Eq(el => el.AlbumId, album.AlbumId);
+
+        var existing = await collection.Find(filter).FirstOrDefaultAsync();
+        if (existing != null)
+        {
+            album.Id = existing.Id; // Preserve the existing _id
+        }
+
         var replaceOptions = new ReplaceOptions { IsUpsert = true };
         var updateResult = await collection.ReplaceOneAsync(filter, album, replaceOptions);
 
-        return updateResult.IsAcknowledged && updateResult.ModifiedCount != 0;
+        return updateResult.IsAcknowledged && (updateResult.ModifiedCount > 0 || updateResult.UpsertedId != null);
     }
 }
 

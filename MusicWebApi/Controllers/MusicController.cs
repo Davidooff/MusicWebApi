@@ -26,11 +26,11 @@ public class MusicController : ControllerBase
         return Results.Ok(result);
     }
 
-    [HttpPost("openPlaylist")]
-    public async Task<IResult> OpenPlaylist(MusicSearch search)
+    [HttpPost("open-album")]
+    public async Task<IResult> OpenAlbum(MusicSearch search)
     {
         var result = await _platformsService.GetAlbum(search.Search, search.Platform);
-        if (result is null)
+        if (result is null) 
             return Results.NotFound();
         
         await _musicRepository.AddAlbum(result, search.Platform);

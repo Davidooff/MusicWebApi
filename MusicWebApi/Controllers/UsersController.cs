@@ -7,6 +7,7 @@ using Domain.Entities;
 using Application.Exceptions.Auth;
 using Domain.Options;
 using UAParser;
+using Infrastructure.Database;
 
 namespace MusicWebApi.Controllers;
 
@@ -16,6 +17,8 @@ namespace MusicWebApi.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly AuthService _authService;
+    private readonly JwtService _jwtService;
+    private readonly UserAlbumRepository _userAlbumRepository;
 
     private readonly CookieOptions accOptions = new CookieOptions
     {
@@ -42,10 +45,10 @@ public class UsersController : ControllerBase
 
     private readonly string accessTokenPath;
     private readonly string refreshTokenPath;
-    private readonly JwtService _jwtService;
 
-    public UsersController(AuthService authService, IOptions<JwtSettings> _jwtSettings, IOptions<VerifyRepoSettings> verifyOptions, JwtService jwtService)
+    public UsersController(AuthService authService, IOptions<JwtSettings> _jwtSettings, IOptions<VerifyRepoSettings> verifyOptions, JwtService jwtService, UserAlbumRepository userAlbumRepository)
     {
+        _userAlbumRepository = userAlbumRepository;
         _jwtService = jwtService ?? throw new ArgumentNullException(nameof(jwtService));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         accessTokenPath = _jwtSettings.Value.AccessTokenStorage ?? throw new ArgumentNullException(nameof(_jwtSettings));
@@ -75,8 +78,9 @@ public class UsersController : ControllerBase
 
         try
         {
-            var tokens = await _authService.Verify(userId, codeVerify.Code, session);
-            SetTokenCookies(tokens);
+            var data = await _authService.Verify(userId, codeVerify.Code, session);
+            SetTokenCookies((data.accessToken, data.refreshToken));
+            await _userAlbumRepository.CreateDefaultPlaylists(userId, data.username);
             return Results.Ok();
         }
         catch (Exception ex)

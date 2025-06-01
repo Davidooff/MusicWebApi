@@ -1,8 +1,8 @@
 ﻿
 namespace Domain.Entities;
-public class PlaylistCollectionEl : IdNameGroup
+public class PlaylistInfo : IdNameGroup
 {
-    public PlaylistCollectionEl(string id, string name) : base(id, name)
+    public PlaylistInfo(string id, string name) : base(id, name)
     {
     }
 

@@ -1,4 +1,5 @@
 ﻿using System.Xml.Linq;
+using Application.utils;
 using Domain.Entities;
 using Microsoft.Extensions.Logging;
 using YouTubeMusicAPI.Client;
@@ -14,10 +15,11 @@ public class YTMusicService : IPlatform
 
     private readonly YouTubeMusicClient _client;
 
-    public YTMusicService(ILogger logger)
+    public YTMusicService(ILogger<YTMusicService> logger)
     {
+        var cookies = new CookieLoader(@"C:\Users\david\Documents\YtMusicCookies\cookies.txt");
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _client = new YouTubeMusicClient(logger); // Ensures client is initialized
+        _client = new YouTubeMusicClient(logger, cookies: cookies); // Ensures client is initialized
     }
 
     private static TrackData Transform(SongSearchResult song)
@@ -52,14 +54,16 @@ public class YTMusicService : IPlatform
     {
         var browseId = await _client.GetAlbumBrowseIdAsync(albumId);
         var album = await _client.GetAlbumInfoAsync(browseId);
-
-        if (album == null)
+        
+        // magic id for not found (Indian music playlist:))
+        if (album == null || album.Id == "OLAK5uy_keiJLtZ4abYSrBfHIc14PqUrUE1mOFYXA") 
             return null;
-
         return new AlbumDB()
         {
-            PlatformId = album.Id,
+            BrowseId = browseId,
+            AlbumId = albumId,
             Name = album.Name,
+            TrackImage = album.Thumbnails.Select(el => new TrackImage(el.Url, el.Width * el.Height)).ToArray(),
             Trackes = album.Songs
                 .Select(el => new TrackInPlatformAlb(el.Id , el.Name) { Duration = (int)el.Duration.TotalSeconds })
                 .ToArray(),

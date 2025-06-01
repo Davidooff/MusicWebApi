@@ -8,7 +8,7 @@ using System.Xml.Linq;
 namespace Infrastructure.Database;
 public class UserAlbumRepository
 {
-    private readonly IMongoCollection<UserAlbumDB> _userAbumCollection;
+    private readonly IMongoCollection<UserPlaylistDB> _userAbumCollection;
 
     public UserAlbumRepository(
         IOptions<DatabaseSettings> databaseSettings)
@@ -19,17 +19,29 @@ public class UserAlbumRepository
         var mongoDatabase = mongoClient.GetDatabase(
             databaseSettings.Value.DatabaseName);
 
-        _userAbumCollection = mongoDatabase.GetCollection<UserAlbumDB>(
+        _userAbumCollection = mongoDatabase.GetCollection<UserPlaylistDB>(
             databaseSettings.Value.UserAbums);
     }
 
-    public async Task<UserAlbumDB?> GetAsync(string userId) =>
+
+    public async Task<UserPlaylistDB?> GetAsync(string userId) =>
         await _userAbumCollection.Find(x =>
             x.Id == userId)
             .FirstOrDefaultAsync();
 
-    public async Task CreateAsync(string userId, string userName, string? name) =>
-        await _userAbumCollection.InsertOneAsync(new UserAlbumDB(new(userId, userName), null));
+    public async Task CreateDefaultPlaylists(string userId, string userName)
+    {
+        UserPlaylistDB[] playlists = [
+            new UserPlaylistDB(new(userId, userName), "Likes") { DefaultPlaylist = true }, 
+            new UserPlaylistDB(new(userId, userName), "Dislikes") { DefaultPlaylist = true }, 
+            new UserPlaylistDB(new(userId, userName), "History") { DefaultPlaylist = true }, 
+            new UserPlaylistDB(new(userId, userName), "Saved") { DefaultPlaylist = true }];
+        
+        await _userAbumCollection.InsertManyAsync(playlists);
+    }
+
+    public async Task CreateAsync(string userId, string userName, string? name = null) =>
+        await _userAbumCollection.InsertOneAsync(new UserPlaylistDB(new(userId, userName), name));
 
     public async Task RemovePlaylis(string id) =>
         await _userAbumCollection.DeleteOneAsync(x => x.Id == id);
@@ -38,7 +50,7 @@ public class UserAlbumRepository
     {
         var _ = await _userAbumCollection.UpdateOneAsync(
             x => x.Id == albumId,
-            Builders<UserAlbumDB>.Update.Push(x => x.Track, trackData));
+            Builders<UserPlaylistDB>.Update.Push(x => x.Track, trackData));
         return _.IsAcknowledged && _.ModifiedCount == 1;
     }
 
@@ -46,25 +58,25 @@ public class UserAlbumRepository
     {
         var _ = await _userAbumCollection.UpdateOneAsync(
             x => x.Id == albumId,
-            Builders<UserAlbumDB>.Update.PullFilter(x => x.Track, x => x.Id == trackId && x.EPlatform == ePlatform));
+            Builders<UserPlaylistDB>.Update.PullFilter(x => x.Track, x => x.Id == trackId && x.EPlatform == ePlatform));
 
         return _.IsAcknowledged && _.ModifiedCount == 1;
     }
 
-    public async Task<List<UserAlbumDB>?> GetUserAlbums(string userId)
+    public async Task<List<UserPlaylistDB>?> GetUserAlbums(string userId)
     {
         return await (await _userAbumCollection.FindAsync(x => x.Owner.Id == userId)).ToListAsync();
     }
 
-    public async Task<IEnumerable<PlaylistCollectionEl>> GetUsersPlaylistsInfo(string userId)
+    public async Task<IEnumerable<PlaylistInfo>> GetUsersPlaylistsInfo(string userId)
     {
-        var filter = Builders<UserAlbumDB>.Filter.Eq(u => u.Owner.Id, userId);
+        var filter = Builders<UserPlaylistDB>.Filter.Eq(u => u.Owner.Id, userId);
         var userAlbums = await _userAbumCollection.FindAsync(filter);
         if (userAlbums == null)
             return [];
 
         return userAlbums.ToList().Select(x => 
-            new PlaylistCollectionEl (x.Id, x.Name) { 
+            new PlaylistInfo (x.Id, x.Name) { 
               Owner = x.Owner, Imgs = GetImgs(x.Track, 500) 
             });
     }

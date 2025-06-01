@@ -6,7 +6,6 @@ using Domain.Options;
 using NRedisStack.RedisStackCommands;
 using Microsoft.Extensions.Logging;
 using Infrastructure.Database;
-using System.Text.Json.Serialization;
 using System.Text.Json;
 using Domain.Entities;
 using Infrastructure.Datasbase;
@@ -15,17 +14,16 @@ namespace Infrastructure.Redis;
 
 public class UserRedisRepository
 {
-    // key: accessToken. val: userId;refreshToken
     private readonly IDatabase _usersDb;
     private readonly ILogger _logger;
     private readonly UserAlbumRepository _albumRepository;
-    private readonly UsersRepository _usersRepository;
+    //private readonly UsersRepository _usersRepository;
 
     public UserRedisRepository(IOptions<UserRedisRepoSettings> options, ILogger<UserRedisRepository> logger,
         UsersRepository usersRepository, UserAlbumRepository albumRepository)
     {
         _albumRepository = albumRepository;
-        _usersRepository = usersRepository;
+        //_usersRepository = usersRepository;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger), "Logger cannot be null.");
 
 
@@ -85,13 +83,17 @@ public class UserRedisRepository
             await _usersDb.KeyExpireAsync($"huser:{userId}", TimeSpan.FromMinutes(30));
     }
 
-    public async Task<PlaylistCollectionEl[]?> GetUserAlbums(string userId)
+    public async Task<PlaylistInfo[]?> GetUserAlbums(string userId)
     {
         var searchResult = await _usersDb.HashGetAsync($"huser:{userId}", "userAlbums");
-        return JsonSerializer.Deserialize<PlaylistCollectionEl[]>(searchResult.ToString());
+        if (searchResult.IsNull) {
+        
+            return (await UpdateUserAlbums(userId)).Value.data.ToArray();    
+        };
+        return JsonSerializer.Deserialize<PlaylistInfo[]>(searchResult.ToString());
     }
 
-    public async Task<(bool result, IEnumerable<PlaylistCollectionEl> data)?> UpdateUserAlbums(string userId)
+    public async Task<(bool result, IEnumerable<PlaylistInfo> data)?> UpdateUserAlbums(string userId)
     {
         var albumsInfo = await _albumRepository.GetUsersPlaylistsInfo(userId);
         if (albumsInfo == null)

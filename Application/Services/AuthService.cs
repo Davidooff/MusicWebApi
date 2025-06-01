@@ -136,7 +136,7 @@ public class AuthService
         return tokens;
     }
 
-    public async Task<(string accessToken, string refreshToken)> 
+    public async Task<(string accessToken, string refreshToken, string username)> 
         Verify(string id, int code,(string sessionName, ESessionType sessionType) sessionInfo)
     {
         var user = await _usersRepository.GetAsync(new UserSerchOptions { Id = id });
@@ -157,18 +157,18 @@ public class AuthService
 
         user.IsVerified = true;
 
-        var tokens = await CreateTokensAndAssignSessionToRedis(user.Id, user.Username);
+        var (acc, reff) = await CreateTokensAndAssignSessionToRedis(user.Id, user.Username);
 
         user.Sessions = [new Session()
         {
-            RefreshToken = tokens.refToken,
+            RefreshToken = reff,
             Name = sessionInfo.sessionName,
             SessionType = sessionInfo.sessionType
         }];
 
         await _usersRepository.UpdateAsync(user.Id, user);
 
-        return tokens;
+        return (acc, reff, user.Username);
     }
 
     /// <summary>

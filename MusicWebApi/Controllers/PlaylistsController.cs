@@ -53,20 +53,24 @@ public class PlaylistsController : ControllerBase
     }
 
     [Authorize]
-    [HttpPost("addTrack")]
+    [HttpPost("add-track")]
     public async Task<IResult> AddTrack(AddTrack trackDto)
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null)
             return Results.Unauthorized();
 
-        var song = await _platformsService.Search(trackDto.TrackId, trackDto.EPlatform);
+        var album = await _platformsService.GetAlbum(trackDto.AlbumId, trackDto.EPlatform);
 
-        if (song is null || song.LongCount() == 0)
+        if (album is null)
             return Results.NotFound();
 
-        await _userAlbumRepository.AddTrack(trackDto.PlayListId, song.FirstOrDefault() ?? throw new Exception());
-        
+        var track = album.Trackes.FirstOrDefault(el => el.Id == trackDto.TrackId);
+
+        if (track is null) return Results.NotFound();
+
+        await _userAlbumRepository.AddTrack(trackDto.PlayListId, new(track, trackDto.EPlatform, album.Author));
+        await _userRedis.UpdateUserAlbums(userId);
         var trackInfo = _musicFileRepo.FindFileInfo(trackDto.TrackId, trackDto.EPlatform);
         if (trackInfo is null)
         {
@@ -83,7 +87,7 @@ public class PlaylistsController : ControllerBase
     }
 
     [Authorize]
-    [HttpPost("removeTrack")]
+    [HttpPost("remove-track")]
     public async Task<IResult> RemoveTrack(AddTrack trackDto)
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

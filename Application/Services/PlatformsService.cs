@@ -10,9 +10,9 @@ public class PlatformsService
     private readonly MusicFileRepository _musicFileRepository;
     private readonly MusicRepository _musicRepository; 
 
-    public PlatformsService(ILogger<PlatformsService> logger, MusicRepository musicRepository, MusicFileRepository musicFileRepository)
+    public PlatformsService(ILogger<PlatformsService> logger, MusicRepository musicRepository, MusicFileRepository musicFileRepository, YTMusicService yTMusicService)
     {
-        _ytMusicService = new YTMusicService(logger);
+        _ytMusicService = yTMusicService;
         _musicRepository = musicRepository ?? throw new ArgumentNullException(nameof(musicRepository));
         _musicFileRepository = musicFileRepository ?? throw new ArgumentNullException(nameof(musicFileRepository));
     }
